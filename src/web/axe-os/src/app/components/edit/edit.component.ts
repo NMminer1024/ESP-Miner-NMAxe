@@ -264,246 +264,63 @@ export class EditComponent implements OnInit {
     for (const r of results) {
       if (r && r.freq > 0 && r.vcore > 0 && !uniq.has(pair(r.freq, r.vcore))) uniq.set(pair(r.freq, r.vcore), r);
     }
+    const entries = [...uniq.values()];
 
-    if (uniq.size >= 3) {
-      // Benchmark-derived: ECO = best efficiency (lowest J/TH), Turbo = best
-      // soak-verified hashrate, Normal = the soak-verified point closest to the
-      // board default pair (ties broken by lower measured power).
-      this.presetSource = 'benchmark';
-      const entries = [...uniq.values()];
-      // Eligibility gate — mirrors the FIRMWARE rule (benchmark_threads.cpp
-      // bm_finish), not the older UI rule:
-      //   fail=1          -> this point tripped protection, never select it
-      //   q != 1          -> did not pass the safety margin (or predates the rule)
-      //   avgHR <= 0      -> no measured hashrate (tombstone / aborted round)
-      //   soak != 1       -> the point was never judged under the user's fan policy
-      //
-      // The soak test is REQUIRED here, and leaving it out was a real defect: the
-      // soak stops at the first candidate that passes, so every remaining row of a
-      // sweep is "q=1 but never soaked". The firmware refuses to auto-apply those,
-      // but these buttons did not check, so Turbo could name — and hot-switch to —
-      // a point that had never been verified under the running fan policy.
-      const marginOk = entries.filter(r => !r.fail && r.q === 1 && r.avgHR > 0);
-      const eligible = marginOk.filter(r => r.soak === 1);
-      // Firmware only soaks the three highest-hashrate candidates for Turbo;
-      // separate Normal/ECO soaks must not be relabelled as Turbo.
-      const turboEligible = [...marginOk]
-        .sort((left, right) => right.avgHR - left.avgHR)
-        .slice(0, 3)
-        .filter(r => r.soak === 1);
-      // Rows measured before the margin rule existed. Worth telling apart from
-      // "every point was measured and rejected": the user's data is fine, it
-      // simply has to be re-measured to be selectable.
-      const legacyCount = entries.filter(r => r.q === undefined || r.q === null).length;
-      const legacyOnly  = eligible.length === 0 && legacyCount > 0;
-      // "Passed the margin but was never soaked" — the sweep stopped early. This is
-      // NOT the same as "no safe point", and saying so avoids sending the user off
-      // to re-check a result that is already fine.
-      const noSoakPassed = eligible.length === 0 && legacyCount === 0 && marginOk.length > 0;
-      // ECO needs at least TWO qualified points to mean anything: with a single
-      // point "lowest J/TH" and "highest hashrate" are the same entry, so ECO and
-      // Turbo would be identical buttons. Field reports read that as a bug (Turbo
-      // showing a LOWER hashrate than Normal, because Normal still quoted an
-      // unqualified historical entry). Disable ECO instead of duplicating Turbo.
-      const turboOk   = turboEligible.length >= 1;
-      const ecoOkBase = eligible.length >= 2;
-      // The row the FIRMWARE soaks as its extra ECO candidate: the lowest-J/TH
-      // qualified point in the table (benchmark_threads.cpp bm_soak_run). It matters
-      // here because a soak verdict alone does not say WHY a row was soaked.
-      const ecoCandidate = marginOk.length
-        ? marginOk.reduce((b, r) => r.effJTH < b.effJTH ? r : b)
-        : undefined;
-      // A single soaked row cannot be both presets. When the ONLY soaked row is
-      // that ECO candidate, Turbo has nothing of its own and must say so instead of
-      // adopting the low-power point — reported from the field on v3.2.02v: every
-      // high-hashrate candidate lost its soak to the cooling-headroom rule, the ECO
-      // row was the only survivor, and Turbo pointed at it (5088 GH/s) while a
-      // qualified 9273 GH/s point sat unsold in the same table.
-      //
-      // ECO stays usable in exactly that state: the one verified row IS the
-      // efficient point, which is what ECO is for.
-      const turboIsOnlyEco = eligible.length === 1 &&
-                             ecoCandidate !== undefined && eligible[0] === ecoCandidate;
-      const ecoOk       = ecoOkBase || turboIsOnlyEco;
-      const turboUsable = turboOk && !turboIsOnlyEco;
-      // Display-only fallbacks when nothing qualifies: the best raw entry, so the
-      // tooltip can still explain what the benchmark measured. Never applied —
-      // the button is disabled in that case.
-      const turbo = turboUsable
-        ? turboEligible.reduce((b, r) => r.avgHR > b.avgHR ? r : b)
-        : entries.reduce((b, r) => r.avgHR > b.avgHR ? r : b);
-      const eco = ecoOk
-        ? eligible.reduce((b, r) => r.effJTH < b.effJTH ? r : b)
-        : turbo;
-
-      const fromBm = (key: 'eco' | 'normal' | 'turbo', label: string, b: BenchmarkEntry): ModePreset =>
-        ({key, label, freq: b.freq, vcore: b.vcore, hashRate: b.avgHR, power: b.avgPwr, bm: b});
-
-      let normal: ModePreset;
-      if (oc.length && vc.length) {
-        const nFreq = oc[this.defaultIdx(oc)].value;
-        const nVcore = vc[this.defaultIdx(vc)].value;
-        // Normal must also use a point that survived the soak under the live fan
-        // policy. A q=1 sweep row only passed with 100% cooling and is not enough
-        // evidence for an automatic preset. Prefer the soaked point closest to the
-        // board default pair (e.g. Nexus 600/1130 instead of its 600/1150 default).
-        const nBm = eligible.length
-          ? eligible.reduce((best, r) => {
-              const d = Math.abs(r.freq - nFreq) + Math.abs(r.vcore - nVcore);
-              const bestD = Math.abs(best.freq - nFreq) + Math.abs(best.vcore - nVcore);
-              return d < bestD || (d === bestD && r.avgPwr < best.avgPwr) ? r : best;
-            })
-          : null;
-        if (nBm) {
-          normal = fromBm('normal', 'Normal', nBm);
-        } else {
-          normal = {
-            key: 'normal', label: 'Normal', freq: nFreq, vcore: nVcore,
-            disabled: true,
-            disabledHint: 'not soak-verified',
-            disabledReason: 'No benchmark point has passed the soak under your current fan policy, so there is no verified Normal point to select automatically. Re-run the benchmark or choose a point manually in Advanced.'
-          };
-        }
-      } else {
-        const nBm = eligible.length
-          ? eligible.reduce((best, r) => {
-              const d = Math.abs(r.freq - curFreq) + Math.abs(r.vcore - curVcore);
-              const bestD = Math.abs(best.freq - curFreq) + Math.abs(best.vcore - curVcore);
-              return d < bestD || (d === bestD && r.avgPwr < best.avgPwr) ? r : best;
-            })
-          : null;
-        normal = nBm
-          ? fromBm('normal', 'Normal', nBm)
-          : {key: 'normal', label: 'Normal', freq: curFreq, vcore: curVcore,
-             disabled: true, disabledHint: 'not soak-verified',
-             disabledReason: 'No benchmark point has passed the soak under your current fan policy, so there is no verified Normal point to select automatically. Re-run the benchmark or choose a point manually in Advanced.'};
-      }
-
-      // A disabled preset must not carry measured values: the button would then
-      // advertise a hashrate for a point the user is not allowed to select.
-      const ecoPreset   = fromBm('eco',   'ECO',   eco);
-      const turboPreset = fromBm('turbo', 'Turbo', turbo);
-      if (!ecoOk) {
-        ecoPreset.disabled = true;
-        if (legacyOnly) {
-          ecoPreset.disabledHint = 're-run benchmark';
-          ecoPreset.disabledReason = `${legacyCount} stored point(s) were measured by an older firmware, before results were checked against the safety margin. ECO cannot pick a low-power point from unverified data - re-run the benchmark and the new results will be qualified automatically.`;
-        } else if (noSoakPassed) {
-          ecoPreset.disabledHint = 'not soak-verified';
-          ecoPreset.disabledReason = 'No qualified point has passed the soak under your current fan policy. Some points may not have been tested yet or may have failed; re-run the benchmark to get a verified ECO point.';
-        } else if (eligible.length === 1) {
-          // One soak-verified point: ECO would just be a copy of Turbo. The
-          // firmware now also soaks the most efficient point, so a single verified
-          // row no longer means "only one row passed the margin" (all of them may
-          // have) - it means the second soak has not produced a row yet.
-          ecoPreset.disabledHint = 'needs more data';
-          ecoPreset.disabledReason = 'Only one point is soak-verified, so ECO and Turbo would be the same point. Re-run the benchmark: it now soaks the most efficient point in addition to the highest-hashrate one, which gives ECO its own verified row.';
-        } else {
-          ecoPreset.disabledHint = 'no safe point';
-          ecoPreset.disabledReason = 'No benchmark point passed the safety margin.';
-        }
-        ecoPreset.hashRate = undefined;
-        ecoPreset.power = undefined;
-      }
-      if (!turboUsable) {
-        turboPreset.disabled = true;
-        if (legacyOnly) {
-          turboPreset.disabledHint = 're-run benchmark';
-          turboPreset.disabledReason = `${legacyCount} stored point(s) were measured by an older firmware, before results were checked against the safety margin. They are kept for reference but cannot be selected automatically - re-run the benchmark to get a verified Turbo point, or pick one manually in Advanced.`;
-        } else if (noSoakPassed) {
-          turboPreset.disabledHint = 'not soak-verified';
-          turboPreset.disabledReason = 'No qualified point has passed the soak under your current fan policy. Some points may not have been tested yet or may have failed; re-run the benchmark to get a verified Turbo point, or pick one manually in Advanced.';
-        } else if (turboEligible.length === 0 && marginOk.length > 0) {
-          turboPreset.disabledHint = 'no verified Turbo point';
-          turboPreset.disabledReason = 'None of the three highest-hashrate qualified candidates passed soak under your current fan policy. A Normal or ECO soak is not treated as a Turbo substitute.';
-        } else if (turboIsOnlyEco) {
-          // The only soaked row is the ECO candidate, so there is no verified
-          // high-hashrate point. Say that instead of relabelling the low-power
-          // point as Turbo.
-          turboPreset.disabledHint = 'no verified Turbo point';
-          turboPreset.disabledReason = 'Every high-hashrate point failed the soak: under your fan policy they ran out of cooling headroom or input-budget reserve. The one point that passed is the low-power ECO point, which is not a Turbo substitute. Improve cooling (fan target / airflow), or pick a point manually in Advanced.';
-        } else {
-          turboPreset.disabledHint = 'no safe point';
-          turboPreset.disabledReason = 'No benchmark point passed the safety margin (peak current or temperature too close to the limit). Re-run the benchmark, or pick a point manually in Advanced.';
-        }
-        turboPreset.hashRate = undefined;
-        turboPreset.power = undefined;
-      }
-      this.presets = [ecoPreset, normal, turboPreset];
-      return;
-    }
-
-    // Fallback: anchor Normal on the board defaults, scale ECO/Turbo around them
-    this.presetSource = 'default';
-    if (!oc.length || !vc.length) { this.presets = []; return; }
-    const df = this.defaultIdx(oc);
-    const dv = this.defaultIdx(vc);
-    const normalFreq = oc[df].value, normalVcore = vc[dv].value;
-
-    // ECO in the no-data fallback.
-    //
-    // ECO means "the point with the best J/TH that PASSED the safety margin", so
-    // without any qualified result there is nothing to select. This used to
-    // synthesise one from a fixed ratio (freq = 0.85 x default, vcore scaled by
-    // the same ratio and then snapped onto the vc list) and leave the button
-    // ENABLED, while the click applies immediately through onModeSelect() - one
-    // press away from persisting an unverified point. Reported on Nexus
-    // (v3.2.02k): ECO offered 500MHz/925mV although the sweep had qualified
-    // 500MHz at 1080mV and 925mV was below the sweep minimum of 950mV. The ratio
-    // knows nothing about the sweep window, the board's verified floor, or which
-    // points exist.
-    //
-    // Turbo is already disabled for exactly this reason; ECO now matches it, and
-    // Advanced still allows manual tuning.
-    const eco: ModePreset = {key: 'eco', label: 'ECO', freq: 0, vcore: 0};
-    eco.disabled = true;
-    const legacyForEco = results.filter(r => r.q === undefined || r.q === null).length;
-    if (legacyForEco > 0) {
-      eco.disabledHint = 're-run benchmark';
-      eco.disabledReason = 'The stored benchmark points were measured by an older firmware and were never checked against the safety margin, so ECO cannot pick a low-power point from them. Re-run the benchmark — Advanced still allows manual tuning.';
-    } else {
-      eco.disabledHint = 'needs benchmark';
-      eco.disabledReason = 'ECO picks the most efficient point that passed the safety margin, so it needs a benchmark result. Run a benchmark first — Advanced still allows manual tuning.';
-    }
-
-    const turbo: ModePreset = {key: 'turbo', label: 'Turbo', freq: 0, vcore: 0};
-    // Without a qualified benchmark point, Turbo must NOT fall back to "highest
-    // frequency at the highest reachable voltage". That combination is the LEAST
-    // verified point on the board, and selecting it silently is exactly how units
-    // ended up tripping. Keep the button visible but disabled, with the reason.
-    turbo.disabled = true;
-    // Fewer than three stored points: either nothing was measured, or what is
-    // there is legacy (measured before the margin rule). Say which, so "needs
-    // benchmark" is not shown to a user who already ran one.
-    const legacyStored = results.filter(r => r.q === undefined || r.q === null).length;
-    if (df >= oc.length - 1) {
-      turbo.disabledHint = 'already at max';
-      turbo.disabledReason = 'Default is already the highest frequency option.';
-    } else if (legacyStored > 0) {
-      turbo.disabledHint = 're-run benchmark';
-      turbo.disabledReason = 'The stored benchmark points were measured by an older firmware and were never checked against the safety margin, so Turbo cannot select one. Re-run the benchmark — Advanced still allows manual tuning.';
-    } else {
-      turbo.disabledHint = 'needs benchmark';
-      turbo.disabledReason = 'Turbo requires a benchmark result that passed the safety margin. Run a benchmark first — Advanced still allows manual tuning.';
-    }
-
-    const fallbackSoaked = results.filter(r => !r.fail && r.q === 1 && r.soak === 1 && r.avgHR > 0);
-    const normalCandidate = fallbackSoaked.length
-      ? fallbackSoaked.reduce((best, r) => {
-          const d = Math.abs(r.freq - normalFreq) + Math.abs(r.vcore - normalVcore);
-          const bestD = Math.abs(best.freq - normalFreq) + Math.abs(best.vcore - normalVcore);
-          return d < bestD || (d === bestD && r.avgPwr < best.avgPwr) ? r : best;
-        })
+    // Preset rules (mirrors firmware bm_soak_run / bm_finish):
+    //   Normal = the board default pair. Always selectable; no benchmark or
+    //            soak requirement.
+    //   ECO    = the most efficient (lowest J/TH) sweep-qualified row. No soak
+    //            requirement — the sweep already checked its safety margin.
+    //   Turbo  = the first soak-verified row among the three highest-hashrate
+    //            qualified rows, best first. The firmware soaks exactly these
+    //            three and stops at the first pass.
+    const marginOk = entries.filter(r => !r.fail && r.q === 1 && r.avgHR > 0);
+    const turboEligible = [...marginOk]
+      .sort((left, right) => right.avgHR - left.avgHR)
+      .slice(0, 3)
+      .filter(r => r.soak === 1);
+    const ecoRow = marginOk.filter(r => r.effJTH > 0)
+      .reduce<BenchmarkEntry | undefined>((b, r) => !b || r.effJTH < b.effJTH ? r : b, undefined);
+    const turboRow = turboEligible.length
+      ? turboEligible.reduce((b, r) => r.avgHR > b.avgHR ? r : b)
       : undefined;
-    const hasQualifiedButUnsoaked = results.some(r => !r.fail && r.q === 1 && r.avgHR > 0);
-    const normal: ModePreset = normalCandidate
-      ? {key: 'normal', label: 'Normal', freq: normalCandidate.freq, vcore: normalCandidate.vcore,
-         hashRate: normalCandidate.avgHR, power: normalCandidate.avgPwr, bm: normalCandidate}
-      : hasQualifiedButUnsoaked
-        ? {key: 'normal', label: 'Normal', freq: normalFreq, vcore: normalVcore,
-           disabled: true, disabledHint: 'not soak-verified',
-           disabledReason: 'Benchmark results exist, but none has passed soak under the current fan policy. Normal is disabled rather than applying an unverified point; re-run the benchmark or choose manually in Advanced.'}
-        : {key: 'normal', label: 'Normal', freq: normalFreq, vcore: normalVcore};
+    const legacyCount = entries.filter(r => r.q === undefined || r.q === null).length;
+
+    const fromBm = (key: 'eco' | 'normal' | 'turbo', label: string, b: BenchmarkEntry): ModePreset =>
+      ({key, label, freq: b.freq, vcore: b.vcore, hashRate: b.avgHR, power: b.avgPwr, bm: b});
+
+    // Normal anchors on the option lists' "(default)" entries; without lists,
+    // fall back to the current operating point.
+    const normalFreq  = oc.length ? oc[this.defaultIdx(oc)].value : curFreq;
+    const normalVcore = vc.length ? vc[this.defaultIdx(vc)].value : curVcore;
+    const normal: ModePreset = {key: 'normal', label: 'Normal', freq: normalFreq, vcore: normalVcore};
+    const normalRow = uniq.get(pair(normalFreq, normalVcore));
+    if (normalRow && !normalRow.fail && normalRow.avgHR > 0) {
+      normal.hashRate = normalRow.avgHR;
+      normal.power = normalRow.avgPwr;
+      normal.bm = normalRow;
+    }
+
+    const eco: ModePreset = ecoRow
+      ? fromBm('eco', 'ECO', ecoRow)
+      : {key: 'eco', label: 'ECO', freq: 0, vcore: 0, disabled: true,
+         disabledHint: legacyCount > 0 && marginOk.length === 0 ? 're-run benchmark' : 'needs benchmark',
+         disabledReason: legacyCount > 0 && marginOk.length === 0
+           ? `${legacyCount} stored point(s) were measured by an older firmware, before results were checked against the safety margin. Re-run the benchmark to qualify them.`
+           : 'ECO picks the most efficient point that passed the sweep safety margin, so it needs a benchmark result. Run a benchmark first — Advanced still allows manual tuning.'};
+
+    const turbo: ModePreset = turboRow
+      ? fromBm('turbo', 'Turbo', turboRow)
+      : {key: 'turbo', label: 'Turbo', freq: 0, vcore: 0, disabled: true,
+         disabledHint: marginOk.length > 0 ? 'no verified Turbo point'
+                       : legacyCount > 0 ? 're-run benchmark' : 'needs benchmark',
+         disabledReason: marginOk.length > 0
+           ? 'None of the three highest-hashrate qualified points passed the soak under your current fan policy (cooling headroom or input-budget reserve). Improve cooling or pick a point manually in Advanced.'
+           : legacyCount > 0
+             ? `${legacyCount} stored point(s) were measured by an older firmware and were never checked against the safety margin. Re-run the benchmark to get a verified Turbo point.`
+             : 'Turbo requires a benchmark result that passed the safety margin and the soak. Run a benchmark first — Advanced still allows manual tuning.'};
+
+    this.presetSource = (ecoRow || turboRow) ? 'benchmark' : 'default';
     this.presets = [eco, normal, turbo];
   }
 

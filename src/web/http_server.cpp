@@ -1113,12 +1113,11 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
                     }
                 }
             }
-            // Soak verdicts describe the OLD cooling, so a real change invalidates them.
-            // Unchanged settings keep them: they are still valid evidence.
-            if (policy_changed) {
-                LOG_W("Fan policy changed -> invalidating soak verification results");
-                bm_result_clear_soak();
-            }
+            // Fan policy is an acoustic/cooling preference, not a hardware safety
+            // limit. A soak verdict records whether the point stayed inside the
+            // board temperature/electrical limits, so changing the fan target or
+            // duty must not erase that verdict.
+            (void)policy_changed;
         }
 
         request->send(200, "application/json", "{\"status\":\"ok\"}");
