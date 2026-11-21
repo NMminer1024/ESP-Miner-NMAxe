@@ -317,7 +317,7 @@ export class EditComponent implements OnInit {
          disabledHint: marginOk.length > 0 ? 'no verified Turbo point'
                        : legacyCount > 0 ? 're-run benchmark' : 'needs benchmark',
          disabledReason: marginOk.length > 0
-           ? 'None of the three highest-hashrate qualified points passed the soak under your current fan policy (cooling headroom or input-budget reserve). Improve cooling or pick a point manually in Advanced.'
+           ? 'None of the three highest-hashrate qualified points passed the soak under your current fan policy (a temperature or input peak exceeded the board limit / adapter budget). Improve cooling or pick a point manually in Advanced.'
            : legacyCount > 0
              ? `${legacyCount} stored point(s) were measured by an older firmware and were never checked against the safety margin. Re-run the benchmark to get a verified Turbo point.`
              : 'Turbo requires a benchmark result that passed the safety margin and the soak. Run a benchmark first — Advanced still allows manual tuning.'};

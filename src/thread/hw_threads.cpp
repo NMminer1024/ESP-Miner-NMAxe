@@ -631,7 +631,13 @@ void power_loop_thread_entry(void* args) {
                         const bool window_ok = (oc_last_latch_step_ms == 0) ||
                             ((uint32_t)(now_ms - oc_last_latch_step_ms) >= OC_LATCH_STEPDOWN_MS);
                         const bool bench_running = nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0) != 0;
-                        if (window_ok && !bench_running &&
+                        // Also skip while the miner is paused/resuming/reiniting:
+                        // the rail is off or being reprogrammed there, so a stale
+                        // latch would otherwise step the user's saved point down
+                        // for a condition that is not even running. Mirrors the
+                        // suppress_activity_checks gate on the monitor's derate.
+                        const bool miner_idle = ctx->mining && ctx->mining->is_controlled_idle();
+                        if (window_ok && !bench_running && !miner_idle &&
                             (uint32_t)(now_ms - oc_latched_since_ms) >= OC_LATCH_STEPDOWN_MS) {
                             // PowerCtx carries a const spec because this thread is not
                             // supposed to reshape the board. Stepping DOWN an operating
@@ -688,7 +694,31 @@ void power_loop_thread_entry(void* args) {
                                 rw.asic.req_vcore = new_vcore;
                                 nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    new_freq);
                                 nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, new_vcore);
-                                power->clear_faults();
+                                // Nothing watches req_frq after warm-up: without this the
+                                // rail drops while the PLL keeps the old clock and the chip
+                                // runs under-volted until a restart.
+                                bool pll_queued = true;
+                                if (ctx->miner && new_freq != cur_freq) {
+                                    pll_queued = ctx->miner->request_asic_frequency(new_freq);
+                                    if (!pll_queued) {
+                                        // Queueing failed (mutex busy): revert the whole
+                                        // step instead of persisting a lower rail against
+                                        // an unchanged PLL, and keep the latch set so the
+                                        // 10-minute window re-arms and retries.
+                                        LOG_W("OC-latch step-down could not queue %uMHz; "
+                                              "reverting to %uMHz/%umV and retrying later.",
+                                              (unsigned)new_freq, (unsigned)cur_freq,
+                                              (unsigned)cur_vcore);
+                                        rw.asic.req_frq   = cur_freq;
+                                        rw.asic.req_vcore = cur_vcore;
+                                        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    cur_freq);
+                                        nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, cur_vcore);
+                                    }
+                                }
+                                // Only clear the latch when the point actually moved —
+                                // clearing it on a reverted step would erase the very
+                                // evidence the retry depends on.
+                                if (pll_queued) power->clear_faults();
                             } else {
                                 LOG_E("OC warning latched for %lumin at %uMHz/%umV but no lower "
                                       "operating point exists — reduce the settings manually.",

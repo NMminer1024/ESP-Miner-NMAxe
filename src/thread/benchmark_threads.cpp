@@ -367,6 +367,8 @@ static void bm_restore_normal_point(BenchmarkCtx* ctx) {
 // hotter run draws MORE input current for the same hashrate (reported from the
 // field: 114.6 W at 50-56 C versus 111.1 W at 39 C for a comparable point), so
 // the sweep's margin is optimistic and has to be re-checked at the soak.
+// The runtime adapter-budget derate (monitor thread) uses the SAME fraction —
+// no rule may stack a second reserve on top of it.
 static constexpr float BM_ADAPTER_BUDGET_DEFAULT = 0.95f;
 
 // Budget actually in force for this board.

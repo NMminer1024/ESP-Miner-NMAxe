@@ -870,11 +870,12 @@ BoardSpecConfig get_board_config_compile_time() {
     // series scaling is handled INSIDE TPS546D24AClass (vcore_series_count=2), so all the
     // values below are user-facing PER-DIE numbers (selectable range 900-1250mV/die).
     //
-    // 1140, not 1150: the sweep grid is 950 + n*10 mV, so 1150 is never measured
-    // and the Normal preset could never quote a benchmark row for the default
-    // pair. 1140 is the nearest grid point below the old default (field-verified
-    // on 124.88: 600MHz/1140mV qualified at 8258.8 GH/s).
-    config.asic.default_vcore        = 1140;
+    // 1150 is the conservative factory default for units that never saved a
+    // voltage. The Normal preset quotes the benchmark row at the default
+    // FREQUENCY regardless of this value (the row's own measured vcore wins),
+    // so the default only matters before the first benchmark — and one unit
+    // passing at a lower voltage is not evidence to lower it for every unit.
+    config.asic.default_vcore        = 1150;
     // Selectable floor lowered to 325MHz/900mV to allow low-power operation;
     // pairs this low are meant for ECO-style tuning, verify stability with a benchmark.
     config.asic.min_vcore            = 900;
@@ -1046,7 +1047,8 @@ BoardSpecConfig get_board_config_compile_time() {
     // reported as acceptable. 0.93 accepts it with a real 7 % reserve and still
     // leaves the 785MHz/1210mV / 795MHz/1230mV class (14.7 A and up, 98 %+) clearly
     // outside. Note 775MHz/1220mV sits at 13.85 A (92.3 %) and therefore also
-    // passes at this setting.
+    // passes at this setting — and the runtime derate judges against this SAME
+    // 13.95 A line, so a soak-verified 775/1220 is not stepped down afterwards.
     //
     // Other boards keep the default: they never came near their rating, so
     // tightening them would only invalidate points they already qualified.
