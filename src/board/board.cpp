@@ -869,7 +869,12 @@ BoardSpecConfig get_board_config_compile_time() {
     // Nexus's 2 BM1373 dies are Vcore-series-stacked (not parallel like Rev8.1), but the
     // series scaling is handled INSIDE TPS546D24AClass (vcore_series_count=2), so all the
     // values below are user-facing PER-DIE numbers (selectable range 900-1250mV/die).
-    config.asic.default_vcore        = 1150;
+    //
+    // 1140, not 1150: the sweep grid is 950 + n*10 mV, so 1150 is never measured
+    // and the Normal preset could never quote a benchmark row for the default
+    // pair. 1140 is the nearest grid point below the old default (field-verified
+    // on 124.88: 600MHz/1140mV qualified at 8258.8 GH/s).
+    config.asic.default_vcore        = 1140;
     // Selectable floor lowered to 325MHz/900mV to allow low-power operation;
     // pairs this low are meant for ECO-style tuning, verify stability with a benchmark.
     config.asic.min_vcore            = 900;
@@ -970,8 +975,8 @@ BoardSpecConfig get_board_config_compile_time() {
             {"1110 mV",           1110},
             {"1120 mV",           1120},
             {"1130 mV",           1130},
-            {"1140 mV",           1140},
-            {"1150 mV(default)",  1150},
+            {"1140 mV(default)",  1140},
+            {"1150 mV",           1150},
             {"1160 mV",           1160},
             {"1170 mV",           1170},
             {"1180 mV",           1180},

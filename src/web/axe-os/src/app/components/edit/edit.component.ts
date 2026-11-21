@@ -289,17 +289,19 @@ export class EditComponent implements OnInit {
     const fromBm = (key: 'eco' | 'normal' | 'turbo', label: string, b: BenchmarkEntry): ModePreset =>
       ({key, label, freq: b.freq, vcore: b.vcore, hashRate: b.avgHR, power: b.avgPwr, bm: b});
 
-    // Normal anchors on the option lists' "(default)" entries; without lists,
-    // fall back to the current operating point.
+    // Normal anchors on the option lists' "(default)" FREQUENCY. When the
+    // benchmark measured that frequency, Normal IS that row — including the
+    // voltage this unit's sweep found stable (600MHz passed at 1050 on one
+    // Gamma and 1150 on another). The hardcoded default voltage is only the
+    // fallback for a board with no benchmark row at that frequency.
     const normalFreq  = oc.length ? oc[this.defaultIdx(oc)].value : curFreq;
     const normalVcore = vc.length ? vc[this.defaultIdx(vc)].value : curVcore;
-    const normal: ModePreset = {key: 'normal', label: 'Normal', freq: normalFreq, vcore: normalVcore};
-    const normalRow = uniq.get(pair(normalFreq, normalVcore));
-    if (normalRow && !normalRow.fail && normalRow.avgHR > 0) {
-      normal.hashRate = normalRow.avgHR;
-      normal.power = normalRow.avgPwr;
-      normal.bm = normalRow;
-    }
+    const normalRow = entries
+      .filter(r => r.freq === normalFreq && !r.fail && r.avgHR > 0)
+      .reduce<BenchmarkEntry | undefined>((b, r) => !b || r.avgHR > b.avgHR ? r : b, undefined);
+    const normal: ModePreset = normalRow
+      ? fromBm('normal', 'Normal', normalRow)
+      : {key: 'normal', label: 'Normal', freq: normalFreq, vcore: normalVcore};
 
     const eco: ModePreset = ecoRow
       ? fromBm('eco', 'ECO', ecoRow)
