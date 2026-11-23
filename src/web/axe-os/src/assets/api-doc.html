@@ -490,6 +490,9 @@
       <a class="nav-item" href="#coredump-info">
         <span class="nav-badge badge-get">GET</span> Dump Info
       </a>
+      <a class="nav-item" href="#coredump-download">
+        <span class="nav-badge badge-get">GET</span> Download Dump
+      </a>
       <a class="nav-item" href="#coredump-clear">
         <span class="nav-badge badge-delete">DELETE</span> Clear Dump
       </a>
@@ -689,7 +692,7 @@
     <span class="kw">"lastDiff"</span>:        <span class="str">"8192"</span>,     <span class="cmt">// difficulty of the last accepted share</span>
     <span class="kw">"blkhits"</span>:         <span class="num">0</span>,          <span class="cmt">// block hits (shares ≥ network diff)</span>
     <span class="kw">"freeHeap"</span>:        <span class="num">204800</span>,    <span class="cmt">// bytes of free heap</span>
-    <span class="kw">"minFreeHeap"</span>:     <span class="num">163840</span>,    <span class="cmt">// minimum free heap since boot (watermark)</span>
+    <span class="kw">"minFreeHeap"</span>:     <span class="num">43560</span>,     <span class="cmt">// min free ON-CHIP SRAM since boot (PSRAM excluded)</span>
     <span class="kw">"sAccepted"</span>:       <span class="num">1024</span>,      <span class="cmt">// accepted shares this session</span>
     <span class="kw">"sRejected"</span>:       <span class="num">3</span>,          <span class="cmt">// rejected shares this session</span>
     <span class="kw">"uptimeSeconds"</span>:   <span class="num">3600</span>,      <span class="cmt">// seconds since last reboot (monotonic-clock derived)</span>
@@ -737,7 +740,7 @@
               <tr><td><code>overtemperature</code></td><td>Vcore regulator overtemperature protection tripped. Vcore/VDD/PLL switched off by the firmware.</td></tr>
             </tbody>
           </table>
-          <div class="note note-warn">⚠️ <code>miner.paused</code> reflects <b>user-requested</b> pause only. A unit shut down by hardware protection reports <code>paused: false</code> with <code>protection</code> set — check <code>protection</code> (or the very low <code>power</code> reading) instead of relying on <code>paused</code> alone. The protection latch is cleared by a restart.</div>
+          <div class="note note-warn">⚠️ <code>miner.paused</code> reflects <b>user-requested</b> pause only. A unit shut down by hardware protection reports <code>paused: false</code> with <code>protection</code> set — check <code>protection</code> (or the very low <code>power</code> reading) instead of relying on <code>paused</code> alone. The protection latch is cleared by a restart or by <code>PATCH /api/mining/state</code> with <code>paused:false</code>.</div>
         </div>
       </div>
 
@@ -811,7 +814,7 @@
               <tr><td><code>error</code></td><td>ASIC initialization or runtime error. Vcore off.</td></tr>
             </tbody>
           </table>
-          <div class="note note-warn">Returns 409 Conflict while Benchmark mode or OTA update is running. The pause state is runtime-only and is not saved to NVS.</div>
+          <div class="note note-warn">Returns 409 Conflict while Benchmark mode or OTA update is running, and 503 before the miner is ready. The pause state is runtime-only and is not saved to NVS. Sending <code>paused:false</code> also releases a latched over-current / over-temperature protection (same effect as the on-screen Dismiss button).</div>
         </div>
       </div>
 
@@ -863,7 +866,9 @@
   <span class="kw">"idx"</span>:     <span class="num">142</span>,
   <span class="kw">"ts"</span>:      <span class="num">1716000000</span>,     <span class="cmt">// Unix timestamp; 0 if RTC was not synced</span>
   <span class="kw">"uptime"</span>:  <span class="num">11520</span>,          <span class="cmt">// previous session uptime, seconds</span>
-  <span class="kw">"heapMin"</span>: <span class="num">49152</span>,          <span class="cmt">// minimum free heap in previous session</span>
+  <span class="kw">"heapMin"</span>: <span class="num">49152</span>,          <span class="cmt">// minimum free heap in previous session (PSRAM-dominated, legacy)</span>
+  <span class="kw">"heapMinInternal"</span>: <span class="num">43560</span>,     <span class="cmt">// minimum free on-chip SRAM — the scarce resource</span>
+  <span class="kw">"heapMinPsram"</span>:    <span class="num">7065363</span>,   <span class="cmt">// minimum free PSRAM</span>
   <span class="kw">"reset"</span>:   <span class="str">"panic"</span>,        <span class="cmt">// ESP32 hardware reset reason (see Reset values table)</span>
   <span class="kw">"intent"</span>:  <span class="str">"none"</span>,         <span class="cmt">// software reboot intent set before restart (see Intent values table)</span>
   <span class="kw">"class"</span>:   <span class="str">"crash"</span>,        <span class="cmt">// cold | planned | unknown_sw | crash | power | external | other</span>
@@ -926,6 +931,7 @@
               <tr><td><code>ota_stall</code></td><td>OTA upload stalled (no progress for &gt;60 s).</td></tr>
               <tr><td><code>selftest_triggered</code></td><td>Self-test sequence triggered a reboot.</td></tr>
               <tr><td><code>daemon_generic</code></td><td>Daemon-initiated reboot with no more specific intent.</td></tr>
+              <tr><td><code>overcurrent_fault</code></td><td>Hardware over-current protection latched and the rail was shut down.</td></tr>
               <tr><td><code>unknown</code></td><td>Unrecognized intent value (firmware version mismatch).</td></tr>
             </tbody>
           </table>
@@ -940,7 +946,7 @@
           <span class="endpoint-summary">Recent reboot records</span>
         </div>
         <div class="endpoint-body">
-          <p class="ep-desc">Returns the stored reboot ring buffer, newest record first. The current firmware keeps up to 10 records.</p>
+          <p class="ep-desc">Returns the stored reboot ring buffer, newest record first. The current firmware keeps up to 5 records (NVS ring size 5).</p>
           <div class="block-label">Response 200 – application/json</div>
           <pre>[
   {
@@ -999,8 +1005,9 @@
       </div>
       <p class="section-desc">
         Panic and watchdog crashes can leave an ELF coredump in the dedicated flash
-        partition. These endpoints expose a compact summary and allow clearing the
-        partition after the report has been saved or reviewed.
+        partition. These endpoints expose a compact summary, stream the raw image for
+        offline symbolization, and allow clearing the partition after the report has
+        been saved or reviewed.
       </p>
 
       <!-- GET /api/coredump/info -->
@@ -1011,23 +1018,43 @@
           <span class="endpoint-summary">Coredump presence and summary metadata</span>
         </div>
         <div class="endpoint-body">
-          <p class="ep-desc">Returns whether a dump exists and, when parseable, lightweight crash metadata.</p>
+          <p class="ep-desc">Returns whether a dump exists and, when parseable, lightweight crash metadata. Crash-time fields (<code>task</code>, <code>pc</code>, <code>bt</code>, <code>appSha256</code>, <code>crash*</code>) describe the image that <strong>crashed</strong>; <code>running*</code> describe the image running now and are context only. A dump stores the crashing image's ELF SHA256 but no version string, so <code>crashFwVersion</code> comes from a persisted crash-identity record; after an OTA that left an old dump behind, <code>belongsToRunningImage</code> is <code>false</code> and <code>crashFwVersion</code> is empty.</p>
           <div class="block-label">Response 200 – dump present</div>
           <pre>{
   <span class="kw">"present"</span>:     <span class="bool">true</span>,
-  <span class="kw">"size"</span>:        <span class="num">12480</span>,
+  <span class="kw">"size"</span>:        <span class="num">52644</span>,
   <span class="kw">"crcOk"</span>:       <span class="bool">true</span>,       <span class="cmt">// false if the dump may be truncated/corrupted</span>
-  <span class="kw">"task"</span>:        <span class="str">"miner"</span>,
-  <span class="kw">"pc"</span>:          <span class="num">1075871436</span>,
-  <span class="kw">"btCorrupted"</span>: <span class="bool">false</span>,
-  <span class="kw">"appSha256"</span>:   <span class="str">"ef970b389312276b"</span>,
-  <span class="kw">"bt"</span>: [
-    <span class="num">1075871436</span>,
-    <span class="num">1075869312</span>
-  ]
+  <span class="kw">"task"</span>:        <span class="str">"async_tcp"</span>,
+  <span class="kw">"pc"</span>:          <span class="num">1074091697</span>,
+  <span class="kw">"btCorrupted"</span>: <span class="bool">true</span>,
+  <span class="kw">"bt"</span>: [ <span class="num">1074091697</span> ],
+  <span class="kw">"appSha256"</span>:       <span class="str">"21dc69fe5c07a802..."</span>,  <span class="cmt">// full 64-hex SHA of the CRASHING image (from the dump)</span>
+  <span class="kw">"crashAppSha256"</span>:  <span class="str">"21dc69fe5c07a802"</span>,      <span class="cmt">// same image, truncated to 16 hex</span>
+  <span class="kw">"crashFwVersion"</span>:  <span class="str">"&lt;crashed-version&gt;"</span>,    <span class="cmt">// "" = not recoverable</span>
+  <span class="kw">"crashUptimeSec"</span>:  <span class="num">95001</span>,
+  <span class="kw">"crashMinFreeHeap"</span>: <span class="num">7035363</span>,
+  <span class="kw">"crashEpoch"</span>:      <span class="num">1794578960</span>,
+  <span class="kw">"crashIdentityKnown"</span>:    <span class="bool">true</span>,
+  <span class="kw">"runningFwVersion"</span>:     <span class="str">"&lt;running-version&gt;"</span>,
+  <span class="kw">"runningAppSha256"</span>:     <span class="str">"1a2b3c4d5e6f7a8b"</span>,
+  <span class="kw">"belongsToRunningImage"</span>: <span class="bool">false</span>   <span class="cmt">// false = dump came from a different build</span>
 }</pre>
           <div class="block-label">Response 200 – no dump</div>
           <pre>{ <span class="kw">"present"</span>: <span class="bool">false</span> }</pre>
+        </div>
+      </div>
+
+      <!-- GET /api/coredump/download -->
+      <div class="endpoint" id="coredump-download">
+        <div class="endpoint-head">
+          <span class="method-badge method-get">GET</span>
+          <code class="endpoint-path">/api/coredump/download</code>
+          <span class="endpoint-summary">Download the raw ELF coredump</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="ep-desc">Streams the ELF core itself (the IDF header is stripped) as <code>application/octet-stream</code> with <code>Content-Disposition: attachment; filename="coredump.elf"</code>. Hand it to <code>gdb</code> together with the matching <code>firmware.elf</code> when the summary's backtrace is corrupted or too shallow. Streamed straight from flash, so it also works for dumps larger than 50 KB.</p>
+          <div class="block-label">Response 404</div>
+          <pre>{ <span class="kw">"error"</span>: <span class="str">"no coredump"</span> }</pre>
         </div>
       </div>
 
@@ -1366,6 +1393,8 @@
   <span class="kw">"asicFreqReq"</span>:  <span class="num">500</span>    <span class="cmt">// MHz – applied immediately via ASIC PLL, saved to NVS</span>
 }</pre>
           <div class="note">All fields take effect in real time after saving — no restart required. ASIC frequency is hot-switched through the ASIC PLL; Vcore is applied through the power regulator; values outside the selectable dropdown range are clamped to that range. Stratum pool changes are stored to NVS and the stratum thread reconnects to the new pool within a few seconds (only when the active pool changed; an idle backup pool update applies at the next failover). URLs must parse as <code>stratum+tcp://host:port</code> or <code>stratum+ssl://host:port</code>; invalid URLs are rejected with 400.</div>
+          <div class="note note-warn"><code>asicFreqReq</code> / <code>asicVcoreReq</code> are rejected with <strong>409</strong> while a benchmark sweep is active (<code>{"error":"asic frequency/voltage cannot be changed while a benchmark is running - stop the benchmark first"}</code>). Pool credentials are still accepted during a sweep.</div>
+          <div class="note note-warn">If a stratum value cannot be written to NVS the request fails with <strong>500</strong> <code>{"error":"nvs_write_failed","code":…,"detail":…,"key":…,"hint":…}</code> and nothing else is applied (the ASIC is not re-tuned). Unreachable benchmark result slots are reclaimed and the write is retried once first.</div>
           <div class="block-label">PATCH – Response 200</div>
           <pre>{ <span class="kw">"status"</span>: <span class="str">"ok"</span> }</pre>
           <div class="block-label">PATCH – Response 400 (invalid pool URL)</div>
@@ -1877,8 +1906,8 @@ Content-Type: application/octet-stream
             <div class="col">
               <div class="block-label">GET – Response 200</div>
               <pre>{
-  <span class="kw">"colorScheme"</span>: <span class="str">"dark"</span>,
-  <span class="kw">"theme"</span>:       <span class="str">"vela-blue"</span>,
+  <span class="kw">"colorScheme"</span>: <span class="str">"dark"</span>,          <span class="cmt">// dark | light</span>
+  <span class="kw">"theme"</span>:       <span class="str">"Red"</span>,           <span class="cmt">// preset name: Red | Blue | Green | Purple</span>
   <span class="kw">"accentColors"</span>: {
     <span class="kw">"--primary-color"</span>:       <span class="str">"#F80421"</span>,
     <span class="kw">"--primary-color-text"</span>:  <span class="str">"#ffffff"</span>,
@@ -1891,9 +1920,9 @@ Content-Type: application/octet-stream
               <div class="block-label">POST – Request body (JSON)</div>
               <pre>{
   <span class="kw">"colorScheme"</span>: <span class="str">"dark"</span>,
-  <span class="kw">"theme"</span>:       <span class="str">"vela-green"</span>,
+  <span class="kw">"theme"</span>:       <span class="str">"Green"</span>,           <span class="cmt">// preset name; accent map is derived from it</span>
   <span class="kw">"accentColors"</span>: {
-    <span class="kw">"--primary-color"</span>: <span class="str">"#00c853"</span>,
+    <span class="kw">"--primary-color"</span>: <span class="str">"#00c853"</span>,    <span class="cmt">// accepted but ignored (derived from "theme")</span>
     <span class="cmt">// ... CSS variable overrides</span>
   }
 }</pre>
@@ -2103,7 +2132,7 @@ Content-Type: application/octet-stream
             Returns the device's own IP along with all IP addresses that responded to ICMP pings during the last /24 subnet scan.
             Rather than having each miner independently probe the network, the design offloads discovery to the querying side: the miner performs a single coarse ICMP sweep and caches the results; callers receive the full alive-IP list and are responsible for the finer-grained NM-device identification (via <code>/probe</code>). This keeps the miner's CPU and network load minimal — it only does one pass of raw reachability, leaving protocol-level classification to the client.
             <br><br>
-            The response also reports <b>mDNS discovery status</b>. When mDNS is active (fresh within ~15 s), the UI shows a live auto-discovery presentation instead of the ICMP scan-progress ring.
+            The response also reports <b>mDNS discovery status</b>. When mDNS is active (fresh within ~25 s), the UI shows a live auto-discovery presentation instead of the ICMP scan-progress ring.
           </p>
           <div class="block-label">Response 200</div>
           <pre>{
@@ -2112,7 +2141,7 @@ Content-Type: application/octet-stream
   <span class="kw">"progress"</span>:     <span class="num">254</span>,            <span class="cmt">// hosts probed so far in the current scan</span>
   <span class="kw">"total"</span>:        <span class="num">254</span>,            <span class="cmt">// total hosts in the /24 subnet</span>
   <span class="kw">"next_scan_in"</span>: <span class="num">287</span>,            <span class="cmt">// seconds until the next automatic ICMP scan (0 while scanning or overdue)</span>
-  <span class="kw">"mdns_active"</span>:  <span class="bool">true</span>,           <span class="cmt">// true when mDNS discovery is fresh (&lt; 15 s old)</span>
+  <span class="kw">"mdns_active"</span>:  <span class="bool">true</span>,           <span class="cmt">// true when mDNS discovery is fresh (&lt; 25 s old)</span>
   <span class="kw">"mdns_next_in"</span>: <span class="num">7</span>,              <span class="cmt">// seconds until next mDNS query (10 s cycle)</span>
   <span class="kw">"ips"</span>:          [
     <span class="str">"192.168.1.42"</span>,   <span class="cmt">// self is always first</span>
@@ -2121,6 +2150,7 @@ Content-Type: application/octet-stream
     <span class="str">"192.168.1.101"</span>
   ]
 }</pre>
+          <div class="note note-warn">Both <code>/probe</code> and <code>/alive</code> return <strong>503</strong> (plain text <code>OTA in progress</code>) while an OTA upload is running, so a swarm poll never competes with the flash write.</div>
         </div>
       </div>
     </section>

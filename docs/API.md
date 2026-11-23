@@ -72,8 +72,8 @@ The response is structured into nested sub-objects.
 | Field | Type | Unit | Description |
 |-------|------|------|-------------|
 | `miner.state` | string | — | Runtime mining state: `running`, `pausing`, `paused`, `resuming`, or `error` |
-| `miner.paused` | bool | — | `true` while user pause/resume control is active |
-| `miner.pauseReason` | string | — | Pause reason, currently `"user"` for API/UI-triggered pause |
+| `miner.paused` | bool | — | `true` whenever mining is not running: any of `pausing`/`paused`/`resuming`/`error`, or a user-requested pause |
+| `miner.pauseReason` | string | — | `"user"` whenever `paused` is true; `""` otherwise |
 | `miner.protection` | string | — | Latched hardware protection: `none`, `overcurrent`, or `overtemperature`. Independent of `paused` — a protection shutdown reports `paused: false` |
 | `miner.hashRate` | float | GH/s | 3-minute average hashrate |
 | `miner.bestDiffEver` | string | — | All-time best share difficulty (e.g. `"1.23M"`) |
@@ -88,14 +88,14 @@ The response is structured into nested sub-objects.
 | `miner.uptimeEver` | int | s | Total cumulative uptime across all sessions |
 | `miner.bmMode` | int | — | Benchmark flag: `1` while a benchmark sweep is active, `0` in normal mining |
 | `miner.freeHeap` | int | bytes | ESP32 free heap memory |
-| `miner.minFreeHeap` | int | bytes | ESP32 minimum free heap since boot (watermark) |
+| `miner.minFreeHeap` | int | bytes | Minimum free **on-chip SRAM** since boot (8-bit capable internal caps only; PSRAM excluded) |
 
 #### 🪪 Board Identity — `identity`
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `identity.fwVersion` | string | Firmware version (e.g. `"<fw-version>"`) |
-| `identity.hwModel` | string | Functional board ID — stable across hardware revisions (e.g. `"NMQAxe+"`) |
+| `identity.hwModel` | string | Functional board ID — stable across hardware revisions (e.g. `"NMQAxe++"`) |
 | `identity.displayName` | string | Human-readable variant label including revision (e.g. `"NMQAxe++Rev6.1"`) |
 | `identity.hostName` | string | Device hostname |
 | `identity.mac` | string | Factory station MAC, uppercase colon-separated hex (e.g. `"FC:9E:53:4A:8B:43"`). Read from eFuse, so it is present even when the radio is down. |
@@ -159,7 +159,7 @@ Active pool connection — read-only snapshot.
     "lastDiff": "131072",
     "blkhits": 0,
     "freeHeap": 187320,
-    "minFreeHeap": 163840,
+    "minFreeHeap": 43560,
     "sAccepted": 1024,
     "sRejected": 3,
     "uptimeSeconds": 86400,
@@ -170,6 +170,7 @@ Active pool connection — read-only snapshot.
     "hwModel": "NMAxe",
     "displayName": "NMAxe",
     "hostName": "nmaxe-001",
+    "mac": "FC:9E:53:4A:8B:43",
     "ssid": "MyHomeWifi",
     "rssi": -55,
     "appSha256": "ef970b389312276b"
@@ -180,6 +181,12 @@ Active pool connection — read-only snapshot.
   "stratum": {
     "url": "stratum+tcp://pool.example.com:3333",
     "user": "bc1q...xyz.worker1",
+    "pwd": "x"
+  }
+}
+```
+
+</details>
 
 ### `PATCH /api/mining/state` — Pause/Resume Mining
 
@@ -209,13 +216,9 @@ Set `paused` to `false` to start mining again:
 
 `409 Conflict` is returned while Benchmark mode or OTA update is running. The pause state is runtime-only and is not saved to NVS; after reboot, normal mining starts as usual.
 
-> **`protection` vs `paused`**: `paused` only reflects a user-requested pause. When the firmware shuts the rail down on overcurrent or overtemperature, `paused` stays `false` while `protection` is set — monitor `protection` (or the near-zero `power` reading) rather than inferring a shutdown from `paused` alone. The latch is cleared by a restart.
-    "pwd": "x"
-  }
-}
-```
+> **`protection` vs `paused`**: `paused` only reflects a user-requested pause. When the firmware shuts the rail down on overcurrent or overtemperature, `paused` stays `false` while `protection` is set — monitor `protection` (or the near-zero `power` reading) rather than inferring a shutdown from `paused` alone. The latch is cleared by a restart or by a `PATCH` with `paused:false`.
 
-</details>
+`503 Service Unavailable` is returned before the miner is ready (`{"error":"miner is not ready"}`).
 
 ---
 
@@ -224,12 +227,15 @@ Set `paused` to `false` to start mining again:
 | Method | Endpoint | Description |
 |:------:|:---------|:------------|
 | GET | `/api/dashboard/topdiffs`       | Lifetime Top-10 best share difficulties (descending, NVS-persisted) |
+| DELETE | `/api/dashboard/topdiffs`    | Wipe the lifetime Top-10 (also resets `bestever` in NVS) |
 | GET | `/api/dashboard/gauge/limits`   | Min/max ranges for power, heat, and performance gauges |
 | GET | `/api/dashboard/chart/history`  | Full miner status time-series (up to 2000 records, ~24 h) |
 | GET | `/api/dashboard/chart/realtime` | Single latest data point for live chart update |
 | GET | `/api/dashboard/luck/history`   | Block-proximity history for luck/difficulty chart |
 
 ### Chart series schema — `labels[]` / `statistics[][]`
+
+**Response envelope**: `/chart/history` returns `timestamp` (ms), `labels[]`, `statistics[][]`, `size`, `sampledSize`, `sampleInterval`, `userRequestedInterval`, `maxDataPoints`; `/chart/realtime` returns `timestamp`, `labels[]` and exactly one row in `statistics[][]`. `/chart/history` accepts `?interval=N` (downsampling stride, 1–100, default 10) and lowers the effective stride automatically when the stored history exceeds 2000 points. Non-finite sensor readings are serialised as `null`, never `nan`.
 
 Both chart endpoints return position-aligned rows: `statistics[i][j]` is the value of column `labels[j]`. **Always resolve columns by label, never by hard-coded index** — the schema is append-only. Current fixed 18-column order (identical on both endpoints):
 
@@ -274,7 +280,9 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 { "hostname": "...", "mdnsName": "...", "ssid": "...", "wifiPass": "..." }
 ```
 
-> `mdnsName`: mDNS `.local` name — the miner is reachable on the LAN as `http://<mdnsName>.local`. Lowercase `[a-z0-9-]` only, max 20 chars, no leading/trailing hyphen. Independent of `hostname` (which also sets the AP SSID). Default: `<board-mdns-base>-<5-hex-device-code>`, e.g. `nmaxepp81-06ea1`. Takes effect after reboot.
+> `mdnsName`: mDNS `.local` name — the miner is reachable on the LAN as `http://<mdnsName>.local`. The web UI enforces lowercase `[a-z0-9-]`, max 20 chars, no leading/trailing hyphen (the firmware stores the string as sent). Independent of `hostname` (which also sets the AP SSID). Default: `<board-mdns-base>-<5-hex-device-code>`, e.g. `nmaxepp81-06ea1`. Takes effect after reboot.
+>
+> All fields on this endpoint take effect after a reboot (the Network page offers a Restart button); none are hot-applied.
 
 ### Time — `/api/setting/time`
 
@@ -327,6 +335,8 @@ Each endpoint supports `GET` (read current values) and `PATCH` (save changes to 
 >   "hint": "NVS is full or fragmented - clear benchmark results / top-10 or factory reset, then retry" }
 > ```
 > HTTP status `500`. Before giving up, the firmware reclaims unreachable benchmark result slots (rows no ring index points at — invisible in the UI but still occupying NVS) and retries once, so a full-but-littered partition does not block a pool change. Use [`GET /api/system/nvs`](#get-apisystemnvs--response-fields) to see what is actually stored.
+>
+> **Benchmark guard**: `asicVcoreReq` / `asicFreqReq` are rejected with `409 {"error":"asic frequency/voltage cannot be changed while a benchmark is running - stop the benchmark first"}` while a sweep is active. Pool credentials are still accepted during a sweep.
 
 ### Market — `/api/setting/market`
 
@@ -425,6 +435,8 @@ Upload a custom animated GIF as screensaver.
 | POST | `/api/swarm/find` | Locate a specific device by blinking its screen |
 | GET | `/api/swarm/summary` | Firmware-aggregated swarm totals (the same `SwarmState` the LCD shows): `workers`, `hr` (H/s), `sbd`, `ebd` |
 
+> `/api/swarm/summary` returns `503` (`text/plain` `OTA in progress`) while an OTA upload is running.
+
 ### `POST /api/swarm/find`
 
 Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flash. The user can dismiss the effect by tapping the screen or pressing the Boot button. Available in both normal and recovery mode.
@@ -472,6 +484,8 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 | `mdns_next_in` | int | Seconds until the next mDNS query (10 s cycle) |
 | `ips` | array | Self plus the de-duplicated union of ICMP-alive hosts and mDNS peers seen within the last 60 s |
 
+> Both `/probe` and `/alive` return `503` with `text/plain` `OTA in progress` while an OTA upload is running, so a swarm poll never competes with the flash write.
+
 ---
 
 ## Theme
@@ -479,7 +493,9 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 | Method | Endpoint | Description |
 |:------:|:---------|:------------|
 | GET  | `/api/theme` | Current color scheme name and accent color map |
-| POST | `/api/theme` | Save `colorScheme`, `theme` name and `accentColors` to NVS |
+| POST | `/api/theme` | Save `colorScheme` (`dark`/`light`) and the preset `theme` name (`Red`/`Blue`/`Green`/`Purple`) to NVS |
+
+> An `accentColors` object from an older client is accepted but ignored: the accent map is derived from the preset name on read, which saves ~24 NVS entries.
 
 ---
 
@@ -497,7 +513,7 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 | Method | Endpoint | Description |
 |:------:|:---------|:------------|
 | GET    | `/api/reboot/last` | Newest reboot record only (for dashboard banner) |
-| GET    | `/api/reboot/list` | Up to 10 reboot records, newest first |
+| GET    | `/api/reboot/list` | Up to 5 reboot records (NVS ring), newest first |
 | DELETE | `/api/reboot/list` | Wipe stored reboot history (boot index is preserved) |
 
 ### Reboot Record Fields
@@ -510,9 +526,9 @@ Sets the `FIND_NEIGHBOR` event on the target device, causing its display to flas
 | `heapMin` | int | Minimum free heap across **all** regions. Legacy field: because the 8 MB PSRAM joins the ESP32 heap, this reads as a PSRAM-scale number and says nothing about on-chip SRAM |
 | `heapMinInternal` | int | Minimum free **on-chip SRAM** during the previous session (bytes). This is the scarce resource; `0` means the record predates the field |
 | `heapMinPsram` | int | Minimum free **PSRAM** during the previous session (bytes). `0` means the record predates the field |
-| `reset` | string | ESP32 reset reason (e.g. `"panic"`, `"watchdog"`, `"power_on"`) |
-| `intent` | string | Software reboot intent (e.g. `"ota_finished"`, `"user_web"`, `"none"`) |
-| `class` | string | Reboot class: `"cold"`, `"normal"`, `"crash"`, `"ota"` |
+| `reset` | string | ESP32 reset reason: `"poweron"`, `"sw"`, `"panic"`, `"int_wdt"`, `"task_wdt"`, `"wdt"`, `"brownout"`, `"ext_pin"`, `"deepsleep"`, `"sdio"`, `"unknown"` or `"other"` |
+| `intent` | string | Software reboot intent, e.g. `"user_web_reboot"`, `"ota_finished"`, `"config_changed"`, `"low_hashrate"`, `"pool_timeout"`, `"asic_frozen"`, `"overcurrent_fault"`, `"none"` |
+| `class` | string | Reboot class: `"cold"`, `"planned"`, `"unknown_sw"`, `"crash"`, `"power"`, `"external"` or `"other"` |
 | `fw` | string | Firmware version that was running when the reboot occurred |
 | `detail` | string | Additional detail string (e.g. panic reason, uploaded filename) |
 
@@ -548,7 +564,7 @@ Read-only. Touches nothing but flash reads; safe to call at any time.
 | `partition.total_entries` | Total 32-byte NVS entries (6 × 126 = 756 for a 24 KB partition) |
 | `partition.used_entries` / `free_entries` | Live / free entries as reported by `nvs_get_stats()` |
 | `partition.namespaces` | Number of namespaces present |
-| `entries[]` | `{ns, key, type, bytes}` for every stored key (`type` = `u8`/`u16`/`u32`/`u64`/`str`/`blob`) |
+| `entries[]` | `{ns, key, type, bytes}` for every stored key (`type` = `u8`/`i8`/`u16`/`i16`/`u32`/`i32`/`u64`/`i64`/`str`/`blob`) |
 | `namespaces[]` | `{ns, keys, bytes}` — key count and payload bytes per namespace |
 | `largest[]` | The 10 biggest values, descending (these are what block page reclaim) |
 
@@ -577,8 +593,9 @@ Read-only. Touches nothing but flash reads; safe to call at any time.
 
 | Method | Endpoint | Description |
 |:------:|:---------|:------------|
-| GET    | `/api/coredump/info` | Coredump presence and summary metadata |
-| DELETE | `/api/coredump`      | Erase the coredump partition (irreversible) |
+| GET    | `/api/coredump/info`     | Coredump presence and summary metadata |
+| GET    | `/api/coredump/download` | Stream the raw ELF core (`application/octet-stream`, `coredump.elf`) for gdb; `404` when no dump exists |
+| DELETE | `/api/coredump`          | Erase the coredump partition (irreversible) |
 
 ### `GET /api/coredump/info` — Response Fields
 
@@ -709,6 +726,8 @@ All fields are optional. `POST /api/benchmark/start` also accepts `{"resume": tr
 ```
 
 > `POST /api/benchmark/start` returns **`409`** `{"error":"an OTA update is in progress - benchmark cannot start until it finishes"}` while an OTA upload is running — a sweep started then would be killed mid-round and could race the flash erase.
+
+> `DELETE /api/benchmark/results` (no `freq`) reports a partial failure instead of a blind `ok`: `500 {"error":"nvs_delete_failed","detail":"ESP_ERR_NVS_NOT_ENOUGH_SPACE","rows_left":N,"hint":"deleting needs a free NVS entry - free space first, then retry"}`. Deleting a key needs a free entry for the tombstone, so a nearly full partition can refuse.
 
 ### `POST /api/benchmark/apply` — Request Body
 
