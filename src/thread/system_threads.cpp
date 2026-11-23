@@ -804,9 +804,20 @@ void monitor_thread_entry(void* args) {
         // sampler below was moved off modulo).
         static uint32_t last_safety_check_ms = 0;
         static uint32_t over_pwr_since_ms = 0;
+        static uint16_t budget_watch_freq = spec.asic.req_frq;
+        static uint16_t budget_watch_vcore = spec.asic.req_vcore;
         const bool safety_check_due = (millis() - last_safety_check_ms >= 2000u);
         if (safety_check_due) {
             last_safety_check_ms = millis();
+            // A user/preset/benchmark point change starts a fresh observation
+            // window. Never carry 2 minutes measured at the previous point into
+            // the new one, even if the new point also sits outside the margin.
+            if (budget_watch_freq != spec.asic.req_frq ||
+                budget_watch_vcore != spec.asic.req_vcore) {
+                budget_watch_freq  = spec.asic.req_frq;
+                budget_watch_vcore = spec.asic.req_vcore;
+                over_pwr_since_ms  = 0;
+            }
             if (*ctx->bm_mode == 0) {
             if (!(ctx->ota_running && *ctx->ota_running)) {
                 static uint8_t  vcore_err_cnt = 0;
@@ -909,9 +920,18 @@ void monitor_thread_entry(void* args) {
                     // would keep hashing at the old clock while reporting the new one.
                     if (ctx->miner && new_freq != cur_freq) {
                         if (!ctx->miner->request_asic_frequency(new_freq)) {
+                            // Queueing failed (mutex busy): revert the whole step so a
+                            // lowered rail is never persisted against an unchanged PLL.
+                            // The temperature is still over the limit, so the 30 s step
+                            // window re-arms and retries.
                             LOG_W("Over-temperature step-down could not queue %uMHz; "
-                                  "the PLL stays at its current clock until the next request.",
-                                  (unsigned)new_freq);
+                                  "reverting to %uMHz/%umV and retrying later.",
+                                  (unsigned)new_freq, (unsigned)cur_freq, (unsigned)cur_vcore);
+                            spec.asic.req_frq   = cur_freq;
+                            spec.asic.req_vcore = cur_vcore;
+                            nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    cur_freq);
+                            nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, cur_vcore);
+                            return false;
                         }
                     }
 
@@ -989,13 +1009,19 @@ void monitor_thread_entry(void* args) {
                 // rail, 180 W would need 15.25 A), so the current is the primary test.
                 //
                 // Two levels, deliberately NOT a reboot:
-                //   >=95 %  : log a rate-limited warning, keep mining
-                //   >=100 % : sustained -> step the operating point DOWN
+                //   near the rating : log a rate-limited warning, keep mining
+                //   over the BUDGET : sustained 120 s -> step the operating point DOWN
+                // The step-down line is the same adapter budget the sweep and the
+                // soak qualify against (adapter_budget x rating, e.g. 13.95 A on
+                // Nexus), NOT the raw rating — a point the benchmark verified must
+                // not be derated by the runtime rule that is supposed to protect it.
                 // Over-power here is thermal accumulation in the adapter, not a
                 // microseconds-level hazard, and rebooting would land straight back
                 // on the same point and loop. Stepping down also preserves the user's
                 // ability to run a bigger adapter without the firmware fighting them.
-                if (!suppress_activity_checks && miner_ready &&
+                const bool protection_latched = ctx->sys_evt &&
+                    (xEventGroupGetBits(ctx->sys_evt) & (SYS_EVENT_POWER_OC_FAULT | SYS_EVENT_POWER_OT_FAULT));
+                if (!suppress_activity_checks && !protection_latched && miner_ready &&
                     (spec.pwr.adapter_max_a > 0.0f || spec.pwr.adapter_max_w > 0.0f)) {
                     const float ibus_a = ctx->pwr->ibus / 1000.0f;
                     const float in_w   = ctx->pwr->vbus * ctx->pwr->ibus / 1000000.0f;
@@ -1007,54 +1033,138 @@ void monitor_thread_entry(void* args) {
                         static uint32_t last_alert_ms = 0;
                         if (last_alert_ms == 0 || millis() - last_alert_ms >= 60000) {
                             last_alert_ms = millis();
-                            LOG_W("Input at %.0f%% of the adapter budget (%.2fA / %.1fW). %s",
+                            LOG_W("Input at %.0f%% of the adapter rating (%.2fA / %.1fW). %s",
                                   pct, ibus_a, in_w,
                                   (pct >= 100.0f) ? "OVER RATING — will step down if it persists"
                                                   : "close to the rating");
                         }
                     }
-                    if (pct >= 100.0f) {
-                        constexpr uint32_t ADAPTER_OVERLOAD_STEPDOWN_MS = 120000;
-                        if (over_pwr_since_ms == 0) over_pwr_since_ms = millis();
-                        if ((uint32_t)(millis() - over_pwr_since_ms) >= ADAPTER_OVERLOAD_STEPDOWN_MS) {
+                    // Runtime adapter protection. Fan saturation is a cooling
+                    // preference signal, not by itself a reason to change the
+                    // user's operating point. Only sustained input-budget excess
+                    // can trigger this derate; temperature limits are handled above.
+                    //
+                    // ONE number, shared with the sweep and the soak
+                    // (bm_adapter_budget): the trigger line is exactly the budget
+                    // the benchmark qualified the point against. A second reserve
+                    // on top used to sit 2 % lower (13.67 A vs 13.95 A on Nexus),
+                    // so a soak-verified point like 775/1220 (peak 13.89 A) was
+                    // accepted by the benchmark and then stepped down two minutes
+                    // into normal mining — "set 9 TH/s, got less". The soak code
+                    // explicitly forbids stacking a second reserve; this rule now
+                    // obeys the same contract.
+                    const float budget_fraction =
+                        (spec.pwr.adapter_budget > 0.01f && spec.pwr.adapter_budget < 1.0f)
+                            ? spec.pwr.adapter_budget : 0.95f;
+                    const float safe_current_a = spec.pwr.adapter_max_a * budget_fraction;
+                    const float safe_power_w   = spec.pwr.adapter_max_w * budget_fraction;
+                    const bool current_over = spec.pwr.adapter_max_a > 0.0f &&
+                                              ibus_a > safe_current_a;
+                    const bool power_over = spec.pwr.adapter_max_w > 0.0f &&
+                                            in_w > safe_power_w;
+
+                    // Clear the 120 s timer only below 98 % of the budget line
+                    // (13.67 A on Nexus). Anchoring the clear to the trigger keeps
+                    // brief excursions from accumulating forever: the old clear
+                    // sat 2 % below an already-lowered trigger (13.40 A), so a
+                    // point averaging 13.32 A never reset the timer and one 0.2 %
+                    // excursion over 22 h was enough to derate it.
+                    const bool current_clear = spec.pwr.adapter_max_a <= 0.0f ||
+                        ibus_a < safe_current_a * board_safety::ADAPTER_CLEAR_HYSTERESIS;
+                    const bool power_clear = spec.pwr.adapter_max_w <= 0.0f ||
+                        in_w < safe_power_w * board_safety::ADAPTER_CLEAR_HYSTERESIS;
+                    const uint32_t now_ms = millis();
+                    const bool input_over = current_over || power_over;
+                    if (!input_over && current_clear && power_clear) over_pwr_since_ms = 0;
+                    const bool starting_input = input_over && over_pwr_since_ms == 0;
+                    if (starting_input) over_pwr_since_ms = now_ms;
+                    if (input_over) {
+                        constexpr uint32_t RUNTIME_MARGIN_DERATE_MS = board_safety::RUNTIME_DERATE_HOLD_MS;
+                        if (starting_input) {
+                            LOG_W("Runtime adapter budget exceeded (current=%d power=%d) "
+                                  "at %uMHz/%umV; will step down if it persists for %lus.",
+                                  (int)current_over, (int)power_over,
+                                  (unsigned)spec.asic.req_frq, (unsigned)spec.asic.req_vcore,
+                                  (unsigned long)(RUNTIME_MARGIN_DERATE_MS / 1000u));
+                        }
+                        const bool sustained_input = input_over && now_ms - over_pwr_since_ms >= RUNTIME_MARGIN_DERATE_MS;
+                        if (sustained_input) {
                             over_pwr_since_ms = 0;
-                            uint16_t new_freq  = spec.asic.req_frq;
+                            const uint16_t cur_freq  = spec.asic.req_frq;
+                            const uint16_t cur_vcore = spec.asic.req_vcore;
+                            uint16_t new_freq = spec.asic.req_frq;
                             uint16_t new_vcore = spec.asic.req_vcore;
-                            bool stepped = false;
-                            // Same order as the protection resume path: voltage first
-                            // (it dominates input power), then one frequency step.
-                            bool have_vc = false;
-                            for (const auto& o : spec.ui.setting_page.vc) {
-                                if (o.value < spec.asic.req_vcore &&
-                                    (!have_vc || o.value > new_vcore)) {
-                                    new_vcore = o.value; have_vc = true;
-                                }
-                            }
-                            stepped = have_vc;
-                            if (!stepped) {
-                                uint16_t best_f = 0; bool have_f = false;
-                                for (const auto& o : spec.ui.setting_page.oc) {
-                                    if (o.value < spec.asic.req_frq &&
-                                        (!have_f || o.value > best_f)) {
-                                        best_f = o.value; have_f = true;
+                            const bool soak_verified = bm_result_pick_safer_point(
+                                spec.asic.req_frq, spec.asic.req_vcore, &new_freq, &new_vcore, true);
+                            const bool measured = soak_verified || bm_result_pick_safer_point(
+                                spec.asic.req_frq, spec.asic.req_vcore, &new_freq, &new_vcore, false);
+                            const bool has_qualified = bm_result_has_qualified_point();
+                            bool stepped = measured;
+                            if (!stepped && !has_qualified) {
+                                // No lower measured-and-qualified pair exists. Use one
+                                // selectable step only when there is no qualified
+                                // benchmark table to contradict it. Once measured points
+                                // exist, never persist an untested operating point.
+                                bool have_vc = false;
+                                for (const auto& option : spec.ui.setting_page.vc) {
+                                    if (option.value < spec.asic.req_vcore &&
+                                        (!have_vc || option.value > new_vcore)) {
+                                        new_vcore = option.value;
+                                        have_vc = true;
                                     }
                                 }
-                                if (have_f) { new_freq = best_f; stepped = true; }
+                                stepped = have_vc;
+                                if (!stepped) {
+                                    bool have_freq = false;
+                                    for (const auto& option : spec.ui.setting_page.oc) {
+                                        if (option.value < spec.asic.req_frq &&
+                                            (!have_freq || option.value > new_freq)) {
+                                            new_freq = option.value;
+                                            have_freq = true;
+                                        }
+                                    }
+                                    stepped = have_freq;
+                                }
                             }
-                            if (stepped) {
-                                LOG_W("Input over adapter rating for 120s — stepping down %uMHz/%umV -> %uMHz/%umV (not rebooting).",
+                            if (stepped && (new_freq != spec.asic.req_frq ||
+                                            new_vcore != spec.asic.req_vcore)) {
+                                LOG_W("Runtime adapter budget exceeded for %lus — stepping %uMHz/%umV -> "
+                                      "%uMHz/%umV (%s).",
+                                      (unsigned long)(RUNTIME_MARGIN_DERATE_MS / 1000u),
                                       (unsigned)spec.asic.req_frq, (unsigned)spec.asic.req_vcore,
-                                      (unsigned)new_freq, (unsigned)new_vcore);
+                                      (unsigned)new_freq, (unsigned)new_vcore,
+                                      soak_verified ? "soak-verified benchmark point" :
+                                      measured ? "sweep-qualified benchmark point" : "one selectable step");
                                 spec.asic.req_frq   = new_freq;
                                 spec.asic.req_vcore = new_vcore;
-                                nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    new_freq);
+                                nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ, new_freq);
                                 nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, new_vcore);
+                                // Same reason as the over-temperature step above: nothing
+                                // watches req_frq after warm-up, so the new clock has to be
+                                // pushed to the PLL explicitly or the chip keeps hashing at
+                                // the old frequency on the lowered rail.
+                                if (ctx->miner && new_freq != cur_freq) {
+                                    if (!ctx->miner->request_asic_frequency(new_freq)) {
+                                        // Queueing failed (mutex busy): do NOT leave the
+                                        // lowered voltage persisted against a PLL that
+                                        // never moved. Roll the whole step back; the
+                                        // budget timer re-arms and retries in 120 s.
+                                        LOG_W("Adapter-budget step-down could not queue %uMHz; "
+                                              "reverting to %uMHz/%umV and retrying later.",
+                                              (unsigned)new_freq, (unsigned)cur_freq,
+                                              (unsigned)cur_vcore);
+                                        spec.asic.req_frq   = cur_freq;
+                                        spec.asic.req_vcore = cur_vcore;
+                                        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    cur_freq);
+                                        nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, cur_vcore);
+                                    }
+                                }
                             } else {
-                                LOG_E("Input over adapter budget but no lower operating point exists — reduce the settings manually.");
+                                LOG_E("Runtime adapter budget exceeded but no lower usable benchmark point exists%s; "
+                                      "current settings are unchanged. Reduce frequency/voltage or improve power.",
+                                      has_qualified ? " (qualified rows exist, but none is lower and soak-eligible)" : "");
                             }
                         }
-                    } else {
-                        over_pwr_since_ms = 0;
                     }
                 } else {
                     over_pwr_since_ms = 0;

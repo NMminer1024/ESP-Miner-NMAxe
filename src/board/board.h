@@ -11,6 +11,18 @@
 #include <vector>
 #include <functional>
 
+namespace board_safety {
+// Hysteresis for the runtime adapter-budget derate: the 120 s over-budget
+// timer only clears once the input falls below 98 % of the SAME budget line
+// the sweep/soak qualify against (Nexus: 13.95 A trigger, 13.67 A clear).
+// There is deliberately no second reserve constant — the benchmark and the
+// runtime rule must judge against one number.
+constexpr float    ADAPTER_CLEAR_HYSTERESIS     = 0.98f;
+constexpr uint16_t FAN_PINNED_DUTY              = 99;
+constexpr double   FAN_TARGET_OVERSHOOT_C       = 0.5;
+constexpr uint32_t RUNTIME_DERATE_HOLD_MS       = 120000;
+}
+
 // /******************default parameter define for NMAxe***********************/
 // #define BOARD_NMAXE_NAME                                "NMAxe"
 // #define BOARD_NMAXE_GAMMA_NAME                          "NMAxeGamma"       
@@ -218,6 +230,11 @@ struct BoardSpecConfig {
         //
         // Every other board keeps 0.95: lowering it globally would invalidate points
         // they have already qualified, for no evidence of a problem.
+        //
+        // This ONE fraction is used by all three judges: the sweep qualification,
+        // the post-sweep soak, and the runtime adapter-budget derate. No rule may
+        // stack an extra reserve on top — a point the benchmark verified must not
+        // be stepped down by the runtime rule minutes later.
         //
         // 0 = use BM_ADAPTER_BUDGET_DEFAULT (0.95).
         //

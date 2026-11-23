@@ -229,6 +229,61 @@ void power_init_thread_entry(void* args) {
     delay(100); // wait for power stable
     xEventGroupSetBits(ctx->init_evt, INIT_EVENT_VDD_VPLL_READY);
 
+    // ── Program VOUT_COMMAND now, with EN still off ──────────────────────────
+    //
+    // The rail is enabled only further down (after the fan/WiFi/Vbus gate), so
+    // writing the target here cannot produce any output — but it does remove the
+    // window in which the regulator holds whatever command it woke up with.
+    //
+    // Reported from the field on v3.2.02p and v3.2.02u: after a USB flash the rail
+    // read 1355-1356 mV against a 990 mV target for ~8 s, with the die already
+    // conducting (27 W / 2.24 A). The gate below is exactly that ~8 s, and
+    // VOUT_COMMAND is retained by the regulator across an ESP32-only reset (measured
+    // on the bench: a normal OTA reboot starts with the PREVIOUS boot's command still
+    // in the chip), so the rail can be sitting on a stale value the whole time.
+    // Programming early bounds that window to the boot itself instead of the boot
+    // plus the fan self-test plus the WiFi join.
+    {
+        const float cmd = power->get_vout_command_mv();
+        if (cmd == cmd) {
+            LOG_I("Vcore boot: chip VOUT_COMMAND = %.0fmV/die BEFORE programming "
+                  "(target %umV/die) — %s",
+                  (double)cmd, (unsigned)spec.asic.req_vcore,
+                  (fabsf(cmd - (float)spec.asic.req_vcore) <= 5.0f)
+                      ? "matches the target"
+                      : "DIFFERS: the chip is holding a value this boot did not write");
+        } else {
+            LOG_I("Vcore boot: chip VOUT_COMMAND unreadable BEFORE programming (target %umV/die)",
+                  (unsigned)spec.asic.req_vcore);
+        }
+    }
+    power->set_vcore_voltage(spec.asic.req_vcore);
+    {
+        // Prove the write landed AND that the output is still off.
+        //
+        // The "output is off here" part is the actual fix for the cold-start
+        // overshoot: hw_init used to enable the regulator (OPERATION=0x80) before any
+        // voltage had been programmed, so the dies sat on whatever VOUT_COMMAND the
+        // chip held — the previous boot's on a warm restart, its own NVM default on a
+        // cold start (field: 1355 mV/die for 11 s at 33-36 W). READ_VOUT near zero
+        // here is the evidence that the rail is no longer live before we say so.
+        const float cmd = power->get_vout_command_mv();
+        const uint32_t mv = power->get_vcore();
+        if (cmd == cmd) {
+            LOG_I("Vcore boot: programmed %umV/die -> chip VOUT_COMMAND = %.0fmV/die, "
+                  "READ_VOUT = %umV with the output still disabled",
+                  (unsigned)spec.asic.req_vcore, (double)cmd, (unsigned)mv);
+        } else {
+            LOG_I("Vcore boot: programmed %umV/die -> chip VOUT_COMMAND unreadable, "
+                  "READ_VOUT = %umV with the output still disabled",
+                  (unsigned)spec.asic.req_vcore, (unsigned)mv);
+        }
+        if (mv > 100) {
+            LOG_W("Vcore boot: rail reads %umV before the enable step — something enabled the "
+                  "output ahead of the firmware (expected 0mV here)", (unsigned)mv);
+        }
+    }
+
     // Do not block early boot on low Vbus: USB-only power must still be able to
     // continue through WiFi / ASIC count so the loading page can show chip detect.
     // Vcore bring-up itself remains gated on sufficient Vbus.
@@ -268,7 +323,9 @@ void power_init_thread_entry(void* args) {
     // wait for fan ready, wifi connected, and sufficient Vbus before setting
     // vcore voltage, to avoid too high temperature without proper cooling or
     // network connection for error reporting.
-    // set vcore voltage to required voltage
+    //
+    // VOUT_COMMAND was already written before the gate above, so this call is
+    // answered from the driver's cache and does not touch the bus.
     power->set_vcore_voltage(spec.asic.req_vcore);
     power->set_vcore_status(PWR_ON);
     // is_vcore_ready() stays silent while healthy and self-diagnoses on failure,
@@ -288,6 +345,23 @@ void power_init_thread_entry(void* args) {
     delay(500);
 
     LOG_D("Vcore ready at %dmV/%dmV", power->get_vcore(), spec.asic.req_vcore);
+    // Third line of the boot diagnostic: the rail is enabled and settled, so this
+    // is the first reading that reflects real output. A value far above the target
+    // here, with a matching VOUT_COMMAND, means the chip is doing what it was told;
+    // a value far above with a matching target means the regulator itself is not
+    // regulating, which is a different (hardware) problem.
+    {
+        const float cmd = power->get_vout_command_mv();
+        const uint32_t mv = power->get_vcore();
+        if (cmd == cmd) {
+            LOG_I("Vcore boot: EN on, READ_VOUT = %umV/die (target %umV/die), "
+                  "chip VOUT_COMMAND = %.0fmV/die",
+                  (unsigned)mv, (unsigned)spec.asic.req_vcore, (double)cmd);
+        } else {
+            LOG_I("Vcore boot: EN on, READ_VOUT = %umV/die (target %umV/die)",
+                  (unsigned)mv, (unsigned)spec.asic.req_vcore);
+        }
+    }
 
     vTaskDelete(NULL);
 }
@@ -450,6 +524,16 @@ void power_loop_thread_entry(void* args) {
             if (!oc_fault && !ot_fault) {
                 iout_live = itrace_sample(power->get_iout_amps());
             }
+            // Time-qualified step-down state for a latched OC warning.
+            //
+            // Declared here, outside the `oc_warn` branch, so the timer can be
+            // RESET when the warning disappears. Left inside the branch it kept its
+            // value across a latch that cleared on its own (a point change, or a
+            // CLEAR_FAULTS from the resume path), so the NEXT latch started with the
+            // previous one's elapsed time already on the clock and could step down
+            // on its first read.
+            static uint32_t oc_latched_since_ms   = 0;
+            static uint32_t oc_last_latch_step_ms = 0;
             if (oc_fault) {
                 // Quote the per-phase trip point too: the limit is a stack TOTAL
                 // divided across phases, so "limit=70.5A" alone reads as "it should
@@ -500,6 +584,7 @@ void power_loop_thread_entry(void* args) {
                 static uint32_t last = millis();
                 if (millis() - last >= 3000) {
                     if (live) {
+                        oc_latched_since_ms = 0;   // genuine overcurrent right now
                         if (wphase == wphase) {
                             LOG_W("!!! Overcurrent WARNING (live) !!! phase %d = %.2fA >= %.1fA/phase (IOUT total %.2fA)",
                                   (int)ws.worst_i, ws.worst_a, wphase, iout_live);
@@ -508,12 +593,138 @@ void power_loop_thread_entry(void* args) {
                                   iout_live, wlim);
                         }
                     } else {
+                        // Wording matters here: the averaged readback being below the
+                        // limit does NOT mean the event was false. OC_WARN is a per-phase
+                        // INSTANTANEOUS comparator and READ_IOUT is the chip's filtered
+                        // average, so a real spike is invisible to this re-check. Calling
+                        // it "stale" made the field read a genuine warning as a false
+                        // alarm — reported on v3.2.02p, 742 lines at one operating point
+                        // followed by a real OC_FAULT 38 minutes later.
                         if (wphase == wphase) {
-                            LOG_W("Overcurrent WARNING latched (heaviest phase %d now %.2fA, below %.1fA/phase; IOUT total %.2fA; stale, clears on op-point change)",
+                            LOG_W("Overcurrent WARNING latched (phase %d averaged %.2fA, below %.1fA/phase; IOUT total %.2fA) — comparator tripped earlier, latch clears only on CLEAR_FAULTS or a point change",
                                   (int)ws.worst_i, ws.worst_a, wphase, iout_live);
                         } else {
-                            LOG_W("Overcurrent WARNING latched (IOUT now %.2fA, below warn-limit %.1fA; stale, clears on op-point change)",
+                            LOG_W("Overcurrent WARNING latched (IOUT averaged %.2fA, below warn-limit %.1fA) — comparator tripped earlier, latch clears only on CLEAR_FAULTS or a point change",
                                   iout_live, wlim);
+                        }
+
+                        // ── Step down after a latch that will not clear ───────
+                        // A latch that is never live for this long means one of two
+                        // things, and both have the same remedy: either the point sits
+                        // close enough to the comparator that spikes keep setting it, or
+                        // the bit was set once and nothing will clear it until the point
+                        // changes. So after OC_LATCH_STEPDOWN_MS of continuous latched
+                        // reads the operating point is stepped down one notch and the
+                        // latch is cleared, instead of logging the same line forever.
+                        //
+                        // Deliberately slow and one-way: the averaged readback cannot
+                        // see the spike that set the bit, so "not live now" is NOT
+                        // evidence that the warning was false (field: 742 latched lines,
+                        // then a real OC_FAULT 38 minutes later). Stepping down is the
+                        // cheap direction; stepping back up is the user's decision.
+                        //
+                        // Skipped while a benchmark runs: the sweep owns the operating
+                        // point and switches it on purpose.
+                        constexpr uint32_t OC_LATCH_STEPDOWN_MS = 10u * 60u * 1000u;
+                        const uint32_t now_ms = millis();
+                        if (oc_latched_since_ms == 0) oc_latched_since_ms = now_ms;
+                        const bool window_ok = (oc_last_latch_step_ms == 0) ||
+                            ((uint32_t)(now_ms - oc_last_latch_step_ms) >= OC_LATCH_STEPDOWN_MS);
+                        const bool bench_running = nvs_config_get_u8(NVS_CONFIG_BM_MODE, 0) != 0;
+                        // Also skip while the miner is paused/resuming/reiniting:
+                        // the rail is off or being reprogrammed there, so a stale
+                        // latch would otherwise step the user's saved point down
+                        // for a condition that is not even running. Mirrors the
+                        // suppress_activity_checks gate on the monitor's derate.
+                        const bool miner_idle = ctx->mining && ctx->mining->is_controlled_idle();
+                        if (window_ok && !bench_running && !miner_idle &&
+                            (uint32_t)(now_ms - oc_latched_since_ms) >= OC_LATCH_STEPDOWN_MS) {
+                            // PowerCtx carries a const spec because this thread is not
+                            // supposed to reshape the board. Stepping DOWN an operating
+                            // point is the one exception, and it is the same object the
+                            // mining/over-temperature paths already mutate: the point
+                            // has to move somewhere, and req_* is where every consumer
+                            // reads it from.
+                            BoardSpecConfig& rw = const_cast<BoardSpecConfig&>(*ctx->spec);
+                            const uint16_t cur_freq  = rw.asic.req_frq;
+                            const uint16_t cur_vcore = rw.asic.req_vcore;
+                            uint16_t new_freq = cur_freq, new_vcore = cur_vcore;
+                            const bool measured =
+                                bm_result_pick_safer_point(cur_freq, cur_vcore, &new_freq, &new_vcore);
+                            if (!measured) {
+                                // No qualified row below us: one selectable Vcore step,
+                                // then one frequency step, same order as the protection
+                                // resume path (voltage dominates input current).
+                                new_freq = cur_freq;
+                                uint16_t pick = 0;
+                                bool have_vc = false;
+                                for (const auto& o : rw.ui.setting_page.vc) {
+                                    if (o.value < cur_vcore && (!have_vc || o.value > pick)) {
+                                        pick = o.value;
+                                        have_vc = true;
+                                    }
+                                }
+                                if (have_vc) {
+                                    new_vcore = pick;
+                                } else if (cur_vcore >= rw.asic.min_vcore + 5) {
+                                    new_vcore = (uint16_t)(cur_vcore - 5);
+                                } else {
+                                    uint16_t best_f = 0;
+                                    bool have_f = false;
+                                    for (const auto& o : rw.ui.setting_page.oc) {
+                                        if (o.value < cur_freq && (!have_f || o.value > best_f)) {
+                                            best_f = o.value;
+                                            have_f = true;
+                                        }
+                                    }
+                                    if (have_f) new_freq = best_f;
+                                }
+                            }
+                            oc_last_latch_step_ms = now_ms;
+                            oc_latched_since_ms   = 0;
+                            if (new_freq != cur_freq || new_vcore != cur_vcore) {
+                                LOG_W("OC warning latched for %lumin at %uMHz/%umV with the averaged "
+                                      "readback below the limit — stepping down to %uMHz/%umV and clearing "
+                                      "the latch (%s).",
+                                      (unsigned long)(OC_LATCH_STEPDOWN_MS / 60000u),
+                                      (unsigned)cur_freq, (unsigned)cur_vcore,
+                                      (unsigned)new_freq, (unsigned)new_vcore,
+                                      measured ? "benchmark-qualified pair" : "one selectable step");
+                                rw.asic.req_frq   = new_freq;
+                                rw.asic.req_vcore = new_vcore;
+                                nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    new_freq);
+                                nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, new_vcore);
+                                // Nothing watches req_frq after warm-up: without this the
+                                // rail drops while the PLL keeps the old clock and the chip
+                                // runs under-volted until a restart.
+                                bool pll_queued = true;
+                                if (ctx->miner && new_freq != cur_freq) {
+                                    pll_queued = ctx->miner->request_asic_frequency(new_freq);
+                                    if (!pll_queued) {
+                                        // Queueing failed (mutex busy): revert the whole
+                                        // step instead of persisting a lower rail against
+                                        // an unchanged PLL, and keep the latch set so the
+                                        // 10-minute window re-arms and retries.
+                                        LOG_W("OC-latch step-down could not queue %uMHz; "
+                                              "reverting to %uMHz/%umV and retrying later.",
+                                              (unsigned)new_freq, (unsigned)cur_freq,
+                                              (unsigned)cur_vcore);
+                                        rw.asic.req_frq   = cur_freq;
+                                        rw.asic.req_vcore = cur_vcore;
+                                        nvs_config_set_u16(NVS_CONFIG_ASIC_FREQ,    cur_freq);
+                                        nvs_config_set_u16(NVS_CONFIG_ASIC_VOLTAGE, cur_vcore);
+                                    }
+                                }
+                                // Only clear the latch when the point actually moved —
+                                // clearing it on a reverted step would erase the very
+                                // evidence the retry depends on.
+                                if (pll_queued) power->clear_faults();
+                            } else {
+                                LOG_E("OC warning latched for %lumin at %uMHz/%umV but no lower "
+                                      "operating point exists — reduce the settings manually.",
+                                      (unsigned long)(OC_LATCH_STEPDOWN_MS / 60000u),
+                                      (unsigned)cur_freq, (unsigned)cur_vcore);
+                            }
                         }
                     }
                     last = millis();
@@ -527,12 +738,16 @@ void power_loop_thread_entry(void* args) {
                     if (live) {
                         LOG_W("Overtemperature WARNING (live)... Temp=%.1fC >= warn-limit %.1fC", temp, wlim);
                     } else {
-                        LOG_W("Overtemperature WARNING latched (Temp now %.1fC, below warn-limit %.1fC; stale)",
+                        LOG_W("Overtemperature WARNING latched (Temp now %.1fC, below warn-limit %.1fC) — latch clears on CLEAR_FAULTS or a point change",
                               temp, wlim);
                     }
                     last = millis();
                 }
             }
+            // The latch is gone (CLEAR_FAULTS, a point change, or a genuine return
+            // below the warning line): restart the window, so a later latch is judged
+            // on its own elapsed time rather than inheriting this one's.
+            if (!oc_warn) oc_latched_since_ms = 0;
         }
 #if 0
         {

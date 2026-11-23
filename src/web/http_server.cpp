@@ -51,6 +51,57 @@ static float fan_max_target_temp(uint8_t fan_id) {
 // tell whether it came from the web UI, another session on the LAN or a script:
 // the firmware only logged the new value. Every caller here already has the
 // request, so the origin costs nothing to record.
+// Mask the value of every credential key inside an already-serialized JSON
+// fragment, e.g. `{"primary":{"url":"…","pwd":"hunter2"}}` -> `"pwd":"***"`.
+//
+// This has to work on the TEXT, not on the JsonObject: the pool password is not
+// a top-level field. A mining PATCH arrives as `stratum: { primary: { pwd } }`,
+// and the loop below stringifies that whole sub-object into one value, so a
+// check on the top-level key name ("stratum") never sees it. Reported from the
+// field: v3.2.02p logged the pool password in cleartext on every settings save.
+//
+// Key names are matched quoted, so a value that merely contains the word "pwd"
+// is not mistaken for a key. Escaped quotes inside the value are skipped when
+// looking for the closing one.
+static void mask_json_secrets(String& s) {
+    static const char* kKeys[] = { "\"pwd\"", "\"password\"", "\"pass\"" };
+    for (const char* key : kKeys) {
+        const int klen = (int)strlen(key);
+        int from = 0;
+        while (from < (int)s.length()) {
+            const int kp = s.indexOf(key, from);
+            if (kp < 0) break;
+            const int colon = s.indexOf(':', kp + klen);
+            if (colon < 0) break;
+            const int q1 = s.indexOf('"', colon + 1);
+            if (q1 < 0) break;
+            int q2 = -1;
+            for (int i = q1 + 1; i < (int)s.length(); i++) {
+                if (s[i] == '\\') { i++; continue; }
+                if (s[i] == '"') { q2 = i; break; }
+            }
+            if (q2 < 0) break;
+            s = s.substring(0, q1 + 1) + "***" + s.substring(q2);
+            from = q1 + 3 + 1;   // past the closing quote of the mask
+        }
+    }
+}
+
+// Top-level keys whose VALUE is a credential.
+//
+// The text masker below cannot cover these: `wifiPass` is a TOP-LEVEL field, so
+// `kv.value().as<String>()` hands back the bare password - no key name, no
+// quotes to match on - and there is nothing for mask_json_secrets() to find.
+// Reported from the field on v3.2.02s: saving a new WiFi password wrote
+// `wifiPass = <cleartext>` to the console and to /ws.
+static bool is_secret_top_key(const char* k) {
+    static const char* kSecret[] = { "wifiPass", "wifiPassword", "pwd", "password", "pass" };
+    for (const char* s : kSecret) {
+        if (strcmp(k, s) == 0) return true;
+    }
+    return false;
+}
+
 static void log_web_config_change(const char* endpoint, const JsonObject& root,
                                   AsyncWebServerRequest* request = nullptr) {
     String ip;
@@ -59,8 +110,21 @@ static void log_web_config_change(const char* endpoint, const JsonObject& root,
     }
     const char* from = (ip.length() > 0) ? ip.c_str() : "unknown";
     for (const auto& kv : root) {
+        const char* key = kv.key().c_str();
         String val = kv.value().as<String>();
-        LOG_W("[web] config change %s from %s: %s = %s", endpoint, from, kv.key().c_str(), val.c_str());
+        // Mask credentials. Two different shapes reach this loop:
+        //   - nested objects (the pool config: `stratum = {primary:{pwd}}`), which
+        //     mask_json_secrets() can rewrite as text because the key is quoted;
+        //   - flat top-level fields (`wifiPass`), whose value is the bare secret,
+        //     which is why they are checked by key name instead.
+        // The key itself is still printed, because "did the field arrive" is the
+        // point of this line and its value is not.
+        if (is_secret_top_key(key)) {
+            val = "***";
+        } else {
+            mask_json_secrets(val);
+        }
+        LOG_W("[web] config change %s from %s: %s = %s", endpoint, from, key, val.c_str());
     }
 }
 
@@ -1049,12 +1113,11 @@ void patch_setting_preference(AsyncWebServerRequest* request, uint8_t *data, siz
                     }
                 }
             }
-            // Soak verdicts describe the OLD cooling, so a real change invalidates them.
-            // Unchanged settings keep them: they are still valid evidence.
-            if (policy_changed) {
-                LOG_W("Fan policy changed -> invalidating soak verification results");
-                bm_result_clear_soak();
-            }
+            // Fan policy is an acoustic/cooling preference, not a hardware safety
+            // limit. A soak verdict records whether the point stayed inside the
+            // board temperature/electrical limits, so changing the fan target or
+            // duty must not erase that verdict.
+            (void)policy_changed;
         }
 
         request->send(200, "application/json", "{\"status\":\"ok\"}");
@@ -1722,9 +1785,9 @@ void get_benchmark(AsyncWebServerRequest* request){
     resp->printf("\"vcoreMin\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MIN,   vc_min_def));
     resp->printf("\"vcoreMax\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_VCORE_MAX,   vc_max_def));
     resp->printf("\"vcoreStep\":%d,",    nvs_config_get_u16(NVS_CONFIG_BM_VCORE_STEP,  bm_vstep_def));
-    resp->printf("\"sampleIntv\":%d,",   nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 2));
-    resp->printf("\"bmTime\":%d,",       nvs_config_get_u16(NVS_CONFIG_BM_TIME,        120));
-    resp->printf("\"stabTime\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   30));
+    resp->printf("\"sampleIntv\":%d,",   nvs_config_get_u8 (NVS_CONFIG_BM_SAMPLE_INTV, 1));
+    resp->printf("\"bmTime\":%d,",       nvs_config_get_u16(NVS_CONFIG_BM_TIME,        30));
+    resp->printf("\"stabTime\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_STAB_TIME,   15));
     resp->printf("\"curFreq\":%d,",      nvs_config_get_u16(NVS_CONFIG_BM_CUR_FREQ,    0));
     resp->printf("\"curVcore\":%d,",     nvs_config_get_u16(NVS_CONFIG_BM_CUR_VCORE,   0));
     resp->printf("\"startTs\":%lu,",     (unsigned long)nvs_config_get_u32(NVS_CONFIG_BM_START_TS,  0));

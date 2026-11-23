@@ -28,27 +28,53 @@
 // API call retries. Warn is throttled so a contended bus cannot flood the log.
 class TpsBusGuard {
 public:
-    TpsBusGuard(SemaphoreHandle_t m, uint32_t timeout_ms)
-        : _m(m), _ok(m != nullptr && xSemaphoreTakeRecursive(m, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {
-        if (!_ok) {
+    TpsBusGuard(const char* tag, uint32_t timeout_ms, SemaphoreHandle_t m,
+                const char** holder, uint8_t* depth)
+        : _m(m), _holder(holder), _depth(depth),
+          _ok(m != nullptr && xSemaphoreTakeRecursive(m, pdMS_TO_TICKS(timeout_ms)) == pdTRUE) {
+        if (_ok) {
+            // Only the OUTERMOST take names the holder: set_vcore_voltage(0) re-enters
+            // through set_vcore_status(), and the inner frame's release must not clear
+            // the name while the outer frame still holds the bus.
+            if (_depth != nullptr) {
+                if (*_depth == 0 && _holder != nullptr) *_holder = tag;
+                if (*_depth < 0xFF) (*_depth)++;
+            }
+        } else {
             static uint32_t last_warn = 0;
             uint32_t now = millis();
             if (now - last_warn >= 1000) {
-                LOG_W("TPS546D24A bus lock busy (%ums), skipping this access", timeout_ms);
+                // Name the holder. "bus busy" alone cannot be acted on; "held by
+                // set_vcore_voltage, skipped get_vcore" says whether the skip landed
+                // during a point change (expected, harmless) or in steady state.
+                const char* who = (holder != nullptr && *holder != nullptr) ? *holder : "unknown";
+                LOG_W("TPS546D24A bus lock busy (%ums, held by %s), skipping %s",
+                      timeout_ms, who, tag);
                 last_warn = now;
             }
         }
     }
-    ~TpsBusGuard() { if (_ok) xSemaphoreGiveRecursive(_m); }
+    ~TpsBusGuard() {
+        if (_ok) {
+            if (_depth != nullptr && *_depth > 0 && --(*_depth) == 0 && _holder != nullptr) {
+                *_holder = nullptr;
+            }
+            xSemaphoreGiveRecursive(_m);
+        }
+    }
     bool ok() const { return _ok; }
 private:
     SemaphoreHandle_t _m;
-    bool _ok;
+    const char**      _holder;
+    uint8_t*          _depth;
+    bool              _ok;
 };
 // Default 200ms: covers the longest normal holder (set_vcore_voltage ~5 txns,
 // debugPrint ~14 txns) with margin; power loop runs at 50ms so skipping one
 // round on timeout is harmless. NEVER use portMAX_DELAY here.
-#define TPS_BUS_LOCK(timeout_ms)  TpsBusGuard _bus_guard(this->_bus_mtx, (timeout_ms))
+#define TPS_BUS_LOCK(timeout_ms) \
+    TpsBusGuard _bus_guard(__func__, (timeout_ms), this->_bus_mtx, \
+                           &this->_bus_holder, &this->_bus_depth)
 #define TPS_BUS_LOCK_DEFAULT()    TPS_BUS_LOCK(200)
 
 TPS546D24AClass::~TPS546D24AClass(){
@@ -139,7 +165,7 @@ void TPS546D24AClass::_write_byte(uint8_t regaddr, uint8_t data) {
     LOG_E("TPS546D24A write register 0x%02X failed after retry: %d", regaddr, ret);
 }
 
-void TPS546D24AClass::_write_word(uint8_t regaddr, uint16_t data){
+bool TPS546D24AClass::_write_word(uint8_t regaddr, uint16_t data){
     esp_err_t ret = ESP_FAIL;
     // 3 attempts with escalating backoff. A chip-busy NACK clears within tens of ms, so the
     // 100ms third attempt distinguishes timing (would succeed) from a semantic reject
@@ -159,7 +185,7 @@ void TPS546D24AClass::_write_word(uint8_t regaddr, uint16_t data){
         ret = i2c_master_cmd_begin(I2C_MASTER_NUM, cmd, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
         i2c_cmd_link_delete(cmd);
 
-        if (ret == ESP_OK) return;
+        if (ret == ESP_OK) return true;
         if (attempt < 2) delay(backoff_ms[attempt + 1]);
     }
     // Forensics for the OV/UV limit writes: quote the chip's CURRENT VOUT_COMMAND and the
@@ -178,6 +204,7 @@ void TPS546D24AClass::_write_word(uint8_t regaddr, uint16_t data){
     // so the forensics (CML / cmd / held) stay available when LOG_D is enabled.
     LOG_D("TPS546D24A write word 0x%02X=0x%04X failed: %d (CML=0x%02X cmd=%dmV held=%dmV)",
           regaddr, data, ret, cml, this->_ulinear16_to_mv(rb_cmd), this->_ulinear16_to_mv(rb_val));
+    return false;
 }
 
 void TPS546D24AClass::_write_cmd(uint8_t cmd) {
@@ -351,6 +378,39 @@ void TPS546D24AClass::hw_init(void){
 
     this->_write_cmd(PMBUS_CLEAR_FAULTS);
 
+    // ── What state did we inherit? Log it BEFORE changing anything ───────────
+    //
+    // Field evidence (v3.2.02p, cold start, 2026-11-19): the rail was already live
+    // at 1355 mV/die under load (33-36 W, 2.7-3.0 A) about 6 s after reset, with no
+    // firmware enable command issued yet. That is only possible if something
+    // enabled the output earlier, and the two candidates are:
+    //   (a) this driver, via the OPERATION write below (it used to be 0x80 = ON);
+    //   (b) the chip itself, at power-up, on its stored ON_OFF_CONFIG/VOUT_COMMAND.
+    // Reading these registers at the earliest reachable moment separates them, and
+    // the values are the chip's NVM contents because nothing has written them yet.
+    {
+        uint8_t  st_cfg = 0, st_op = 0, st_vmode = 0;
+        uint16_t st_cmd = 0, st_vout = 0, st_word = 0;
+        this->_read_reg(PMBUS_ON_OFF_CONFIG, &st_cfg, 1);
+        this->_read_reg(PMBUS_OPERATION,     &st_op, 1);
+        this->_read_reg(PMBUS_VOUT_MODE,     &st_vmode, 1);
+        this->_read_reg(PMBUS_VOUT_COMMAND,  (uint8_t*)&st_cmd, 2);
+        this->_read_reg(PMBUS_READ_VOUT,     (uint8_t*)&st_vout, 2);
+        this->_read_reg(PMBUS_STATUS_WORD,   (uint8_t*)&st_word, 2);
+        LOG_I("[TPS546D24A] inherited: ON_OFF_CONFIG=0x%02X (PU=%u CMD=%u CP=%u) OPERATION=0x%02X "
+              "VOUT_MODE=0x%02X VOUT_COMMAND=%dmV rail READ_VOUT=%dmV STATUS_WORD=0x%04X",
+              st_cfg, (st_cfg >> 4) & 1u, (st_cfg >> 3) & 1u, (st_cfg >> 2) & 1u, st_op,
+              st_vmode, this->_ulinear16_to_mv(st_cmd), this->_ulinear16_to_mv(st_vout), st_word);
+        // A live rail here means the output was enabled by SOMETHING before us. Say so
+        // at warning level: on a cold start that something is the chip's NVM default,
+        // and the rail is then sitting at whatever voltage that default commands.
+        if (this->_ulinear16_to_mv(st_vout) > 100) {
+            LOG_W("[TPS546D24A] rail is ALREADY LIVE at %dmV (rail) before this driver has enabled "
+                  "anything — output was enabled before hw_init (chip NVM or the EN pin)",
+                  this->_ulinear16_to_mv(st_vout));
+        }
+    }
+
     // ON_OFF_CONFIG = 0x18 (PU|CMD): CMD=1 makes the part honor the OPERATION (0x01)
     // ON/OFF command, ANDed with the CONTROL(EN) pin (active-high). The previous 0x17
     // was a straight copy of the TPS53647 value whose bit map differs — its CMD bit
@@ -358,13 +418,37 @@ void TPS546D24AClass::hw_init(void){
     // actually be powered down on an overcurrent fault.
     this->_write_byte(PMBUS_ON_OFF_CONFIG, 0x18);
 
-    // OPERATION (0x80 = ON, no margining) is ANDed with the CONTROL pin state. With
-    // CMD=1 in ON_OFF_CONFIG above, this command actually gates the output.
-    this->_write_byte(PMBUS_OPERATION, 0x80);
+    // ── OPERATION: OFF, not ON ────────────────────────────────────────────────
+    //
+    // This used to write 0x80 (ON) here, i.e. the driver enabled the output at init
+    // time — BEFORE any VOUT_COMMAND had been programmed, because the target voltage
+    // only arrives later with set_vcore_voltage() from power_init. Whatever the chip
+    // happened to hold was therefore driven onto the dies:
+    //   - after a normal reboot that is the previous boot's command, so it looks fine;
+    //   - on a cold start it is the chip's own NVM default, which on Nexus is
+    //     ~1355 mV/die — the overshoot the field measured, for 11 s, at 33-36 W.
+    //
+    // The output must stay off until both halves are ready. set_vcore_status(PWR_ON)
+    // is the one place that turns it on, and by then VOUT_COMMAND has been written.
+    // Writing 0x00 (not leaving it alone) matters because the chip's inherited
+    // OPERATION may already be ON from its own power-up sequence.
+    this->_write_byte(PMBUS_OPERATION, 0x00);
     delay(10); // internal command processing busies the chip briefly; the next 2 writes were seen to NACK without this
 
     // Fixed absolute VOUT format (see TPS546D24A_VOUT_MODE_N docs above).
     this->_write_byte(PMBUS_VOUT_MODE, TPS546D24A_VOUT_MODE_BYTE);
+    {
+        // Every mV conversion in this driver depends on this exponent, so a silent
+        // failure here would mis-scale the whole rail. Reported from the field:
+        // "write register 0x20 failed after retry: -1" on a cold start, where the chip
+        // was already enabled and busy before we got to configure it.
+        uint8_t vm_rb = 0;
+        if (this->_read_reg(PMBUS_VOUT_MODE, &vm_rb, 1) == 0 && vm_rb != TPS546D24A_VOUT_MODE_BYTE) {
+            LOG_E("[TPS546D24A] VOUT_MODE readback 0x%02X != written 0x%02X — every mV value this "
+                  "driver reports is scaled with N=-9, recheck before trusting volt readings",
+                  vm_rb, TPS546D24A_VOUT_MODE_BYTE);
+        }
+    }
 
     // Internal feedback divider ratio — must match the VSEL strap's electrical intent.
     this->_write_word(PMBUS_VOUT_SCALE_LOOP, this->_float_to_slinear11(this->_cfg.vout_scale_loop));
@@ -532,7 +616,27 @@ void TPS546D24AClass::set_vcore_voltage(uint16_t req_mv){
     if (rail_mv == this->_vout_rail_mv) return;
 
     uint16_t raw = this->_mv_to_ulinear16(rail_mv);
-    this->_write_word(PMBUS_VOUT_COMMAND, raw);
+    // Only cache the rail when the chip actually accepted it.
+    //
+    // Reported from the field (cold start after a USB flash): the rail sat at
+    // 1355-1356 mV for ~8 s against a 990 mV target. The chip's VOUT_COMMAND is
+    // battery-backed/RAM-held, so a write lost during early boot leaves the part on
+    // its own default — and because this cache was updated unconditionally, the fast
+    // path above then answered every later request for the same value with "already
+    // done", so the correct command was never retried for the rest of the boot.
+    //
+    // Leaving the cache at the OLD value makes the next call (power loop, resume, or
+    // the next UI apply) write again, which is exactly the retry that was missing.
+    if (!this->_write_word(PMBUS_VOUT_COMMAND, raw)) {
+        static uint32_t last_fail_ms = 0;
+        if (last_fail_ms == 0 || millis() - last_fail_ms >= 5000) {
+            last_fail_ms = millis();
+            LOG_E("TPS546D24A VOUT_COMMAND %umV rail (raw 0x%04X) was NOT accepted by the chip — "
+                  "keeping the previous value cached so the write is retried (rail may be on the "
+                  "regulator's own default until it lands)", rail_mv, raw);
+        }
+        return;
+    }
     this->_vout_rail_mv = rail_mv;
 
     // OV/UV limits must track the commanded rail — a static window based on
@@ -563,14 +667,18 @@ void TPS546D24AClass::set_vcore_voltage(uint16_t req_mv){
         // therefore also skips 50 ms of held lock, which is the dominant cost of
         // this function.
         delay(50);
-        this->_write_vout_limit_ratios(rail_mv);
-        this->_limit_rail_mv = rail_mv;
+        // Cache the rail the limits were programmed for only when all four landed.
+        // Same reasoning as VOUT_COMMAND: a cached "done" after a rejected write means
+        // the OV/UV window can never be re-based on the live rail.
+        if (this->_write_vout_limit_ratios(rail_mv)) {
+            this->_limit_rail_mv = rail_mv;
+        }
     }
     LOG_D("TPS546D24A VOUT_COMMAND -> %dmV/die x%u = %dmV rail (raw 0x%04X)",
           per_die_mv, this->_vcore_series_count, rail_mv, raw);
 }
 
-void TPS546D24AClass::_write_vout_limit_ratios(uint16_t rail_mv){
+bool TPS546D24AClass::_write_vout_limit_ratios(uint16_t rail_mv){
     uint16_t ov_fault = (uint16_t)(rail_mv * 1.25f);
     uint16_t ov_warn  = (uint16_t)(rail_mv * 1.10f);
     uint16_t uv_warn  = (uint16_t)(rail_mv * 0.90f);
@@ -590,10 +698,14 @@ void TPS546D24AClass::_write_vout_limit_ratios(uint16_t rail_mv){
     if (uv_warn  < vmin) uv_warn  = vmin;
     if (uv_warn  <= uv_fault) uv_warn = uv_fault + 1;
 
-    this->_write_word(PMBUS_VOUT_OV_FAULT_LIMIT, this->_mv_to_ulinear16(ov_fault));
-    this->_write_word(PMBUS_VOUT_OV_WARN_LIMIT,  this->_mv_to_ulinear16(ov_warn));
-    this->_write_word(PMBUS_VOUT_UV_WARN_LIMIT,  this->_mv_to_ulinear16(uv_warn));
-    this->_write_word(PMBUS_VOUT_UV_FAULT_LIMIT, this->_mv_to_ulinear16(uv_fault));
+    // Keep evaluating all four: the chip is already moving, and bailing out early would
+    // leave the remaining limits on the previous rail's ratios for another cycle.
+    bool all_ok = true;
+    if (!this->_write_word(PMBUS_VOUT_OV_FAULT_LIMIT, this->_mv_to_ulinear16(ov_fault))) all_ok = false;
+    if (!this->_write_word(PMBUS_VOUT_OV_WARN_LIMIT,  this->_mv_to_ulinear16(ov_warn)))  all_ok = false;
+    if (!this->_write_word(PMBUS_VOUT_UV_WARN_LIMIT,  this->_mv_to_ulinear16(uv_warn)))  all_ok = false;
+    if (!this->_write_word(PMBUS_VOUT_UV_FAULT_LIMIT, this->_mv_to_ulinear16(uv_fault))) all_ok = false;
+    return all_ok;
 }
 
 void TPS546D24AClass::set_vcore_range(uint16_t min_mv, uint16_t max_mv){
@@ -660,6 +772,24 @@ uint32_t TPS546D24AClass::get_vcore(void){
     LOG_D("[TPS546D24A] Vcore PMBus 0x%04X -> %u mV rail / %u = %u mV/die",
           raw, rail_mv, this->_vcore_series_count, per_die_mv);
     return per_die_mv;
+}
+
+// What the regulator has been TOLD to produce, in per-die millivolts.
+//
+// Read-only, and deliberately kept separate from get_vcore(): the value here
+// survives an ESP32-only reset because the regulator stays powered, while the
+// measured output does not. That difference is the whole point of the boot-time
+// diagnostic in power_init_thread_entry() — it is how "the chip came up on its
+// own default" is told apart from "the chip still held a command written by an
+// earlier boot". After set_vcore_voltage() both look identical.
+float TPS546D24AClass::get_vout_command_mv(void){
+    TPS_BUS_LOCK_DEFAULT();
+    if (!_bus_guard.ok()) return NAN;
+    if (!this->_device_ok) return NAN;
+    uint16_t raw = 0;
+    if (this->_read_reg(PMBUS_VOUT_COMMAND, (uint8_t*)&raw, 2) != 0) return NAN;
+    const uint32_t rail_mv = (uint32_t)this->_ulinear16_to_mv(raw);
+    return (float)((rail_mv + this->_vcore_series_count / 2) / this->_vcore_series_count);
 }
 
 float TPS546D24AClass::get_temperature(void) {

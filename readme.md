@@ -172,6 +172,28 @@ Video tutorial: [NMTech YouTube Channel](https://www.youtube.com/@NMTech-officia
 ## Release Log
 ***
 
+### (2026.11.23) - v3.2.02
+- `Add`:
+  - **Benchmark Rebuilt**: a sweep now runs in place instead of rebooting every round; a post-sweep soak verifies the best points under the real fan policy and only verified points may be auto-applied (rejected ones keep their data but are never used); Start / Stop / Apply / Reset take effect immediately and a stopped sweep resumes where it left off.
+  - **Adapter Power Protection**: per-board adapter ratings feed one budget that the sweep, the soak and the runtime all judge against, and a sustained overload steps the operating point down automatically.
+  - **Charts & Pages**: the hashrate-distribution page is back on the LCD (the Lucky Statistics chart lives on the web dashboard), per-fan curves on two-fan boards, and the lowest stable voltage per frequency in the benchmark results.
+  - **NVS Diagnostics**: `GET /api/system/nvs` shows what is actually stored; the Overview card shows the board MAC.
+- `Modify`:
+  - Benchmark defaults to a 15 s stabilise window, a 30 s measurement window and 1 s sampling; the results table sorts by frequency ascending and drops the Fan column.
+  - Presets follow the sweep: ECO is the most efficient margin-qualified point (a benchmark is required), Turbo is the first soak-verified point among the three highest-hashrate qualified rows, and ECO is never auto-promoted to Turbo.
+  - Fan default targets raised (ASIC 40 °C, Nexus 55 °C; Vcore 70–80 °C) with bumpless hand-over; Nexus default Vcore back to 1150 mV.
+  - Retired standalone benchmark tooling removed.
+- `Improved`:
+  - Far fewer random reboots (WebSocket, market and chart-history faults fixed).
+  - Storage writes trimmed: an idle miner writes roughly 1/20 as much per hour.
+  - Coredumps and heap readings are now trustworthy — the crash-time firmware version is reported and SRAM is separated from PSRAM.
+- `Fixed`:
+  - Fixed new results being rejected once the results table was full, and buttons that stayed disabled.
+  - Fixed occasional cold-start failures, over-temperature step-down retrying the same trip point, broken Vcore-fan hand-over on two-fan boards, and Nexus power gating not actually cutting the rail.
+  - Fixed overlapping text in the mobile performance card and Lucky chart tick/label rendering.
+- `API`:
+  - New `GET /api/dashboard/topdiffs` (plus `DELETE` to clear it) and `GET /api/system/nvs`; chart endpoints now use a fixed 18-column schema; benchmark results gain `vFail` / `soak` / `fanNeed`, support deleting one frequency, and start / stop / reset / apply no longer reboot.
+
 ### (2026.10.20) - v3.2.01
 - `Add`:
   - **Independent mDNS Hostname**: reachable via `http://<mdnsName>.local`; configurable on the Network Edit page, effective after reboot.

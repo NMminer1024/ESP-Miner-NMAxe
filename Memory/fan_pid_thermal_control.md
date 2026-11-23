@@ -286,6 +286,30 @@ only act as a lower bound (`if (duty < fl) duty = fl`), and the back-computed in
 when actually clamped. Measured temperature did not overshoot (64 -> 67 °C, old 64 -> 71 °C), so it
 was kept at the time, but it was a real single-tick jump, changed to a pure lower bound in the u version.
 
+### Nexus auto targets: the pair has to be chosen together (v3.2.02t, 124.2)
+
+The factory default was ASIC **40 °C** / Vcore **65 °C** — copied from the single-fan
+boards. On Nexus 40 °C is **unreachable**, so the loop ran at 100 % for the life of
+the unit and the temperature was simply whatever full speed achieves:
+
+| ASIC target | Vcore target | fan0 | fan1 | ASIC | Vcore | verdict |
+|---|---|---|---|---|---|---|
+| 40 / 45 | 65 | 100 % | 100 % | 48.6 | 68 | both saturated |
+| 52 | 65 | 79 % | **100 %** (target unreachable) | 52.5 | 68 | VRM starved |
+| 52 | 67 | 79 % | 96 % | 52.5 | 68 | too tight |
+| 55 | 65 | 64 % | **100 %** (target unreachable) | 55.1 | 70 | VRM starved |
+| **55** | **70** | **64 %** | **85-89 %** | **55.1** | **70-71** | **adopted** |
+
+**The two fans share one air path**, so the targets are NOT independent: making the
+ASIC target colder gives its fan more work, which starves the VRM. Any Vcore target
+the loop cannot reach pins that fan at 100 % — and that is worse than a looser
+target, because a saturated fan also trips the benchmark's cooling-headroom rule and
+removes ECO/Turbo entirely.
+
+Defaults changed to **55 / 70** in `board.cpp`. Ceilings: ASIC target is clamped to
+75 - 5 = 70, Vcore to 80 - 5 = 75 (80 = `pwr.temp_limit.high`, 85 = the regulator's
+own OT_FAULT).
+
 ### Residual wander: first distinguish "tracking load" from "quantization dither" (v3.2.02u, 124.2)
 
 The goal is "fan steady, no jumps". Before acting, use `tool/fan_pid/fan_wander_corr.ps1` to

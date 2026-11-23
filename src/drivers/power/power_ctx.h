@@ -5,6 +5,7 @@
 // Forward declarations keep this context header free of heavy includes;
 // the power threads (thread_entry.cpp) pull in the full definitions.
 class  AxePowerHal;
+class  AsicMinerClass;
 struct BoardSpecConfig;
 struct MinerStatus;
 
@@ -32,6 +33,10 @@ struct PowerCtx {
     EventGroupHandle_t     sys_evt     = nullptr;  // SYS_EVENT_* runtime notifications
     volatile bool*         ota_running = nullptr;  // skip fault handling during OTA (nullptr -> false)
     MinerStatus*           mining      = nullptr;  // controlled-idle check (nullptr -> not idle)
+    // PLL requests for the OC-latch step-down: nothing watches req_frq after
+    // warm-up, so a frequency change has to be pushed explicitly (nullptr ->
+    // the step-down keeps the old clock and only moves the rail).
+    AsicMinerClass*        miner       = nullptr;
     // Release to the daemon when protection trips repeatedly in a short window and
     // the unit must be restarted instead of resumed. nullptr -> escalation is
     // unavailable and the thread keeps holding in the safe state.

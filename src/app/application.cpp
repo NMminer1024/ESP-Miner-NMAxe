@@ -498,6 +498,7 @@ void MinerApp::_begin_power(BootProgress& boot) {
     ctx.sys_evt     = _sync_system->sys_evt;
     ctx.ota_running = &_state_ota.running;
     ctx.mining      = _state_miner;    // controlled-idle check (nullptr until miners launch)
+    ctx.miner       = _service_miner;  // OC-latch step-down must push the new PLL frequency
     ctx.reboot_xsem = _sync_system->reboot_xsem;  // protection escalation -> restart
     _ctx_power = &ctx;
 

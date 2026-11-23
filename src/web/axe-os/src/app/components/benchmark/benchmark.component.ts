@@ -219,9 +219,9 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
       vcoreMin:   [this.clampField(data.vcoreMin,   600, 2000, 1000), [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
       vcoreMax:   [this.clampField(data.vcoreMax,   600, 2000, 1300), [Validators.required, this.integerValidator, Validators.min(600), Validators.max(2000)]],
       vcoreStep:  [this.clampField(data.vcoreStep,  1,   200,  25),   [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(200)]],
-      sampleIntv: [this.clampField(data.sampleIntv, 1,   300,  2),    [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(300)]],
-      bmTime:     [this.clampField(data.bmTime,     15,  7200, 120),  [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(7200)]],
-      stabTime:   [this.clampField(data.stabTime,   15,  3600, 30),   [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(3600)]],
+      sampleIntv: [this.clampField(data.sampleIntv, 1,   300,  1),    [Validators.required, this.integerValidator, Validators.min(1),   Validators.max(300)]],
+      bmTime:     [this.clampField(data.bmTime,     15,  7200, 30),   [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(7200)]],
+      stabTime:   [this.clampField(data.stabTime,   15,  3600, 15),   [Validators.required, this.integerValidator, Validators.min(15),  Validators.max(3600)]],
     });
     this.syncFormLock();
   }
@@ -338,10 +338,11 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     return !this.isFailed(r) && r.q === 1 && r.avgHR > 0;
   }
 
-  // Soak is no longer a verdict shown next to a row: a point that fails it is
-  // deleted from the results, so everything in the table has already been judged.
-  // The flag is still read, to say whether the fan figures are a soak measurement
-  // or a sweep one.
+  // Soak is not a separate verdict shown next to a row: a point that fails it is
+  // kept but marked q=0 (since v3.2.02v; it used to be deleted), so the row stays
+  // visible with its measured numbers and simply reads "over limit". The flag is
+  // still read, to say whether the fan figures are a soak measurement or a sweep
+  // one.
   public isSoaked(r: BenchmarkResult): boolean {
     return r.soak === 1;
   }
@@ -395,7 +396,17 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
     // not how the unit will be operated. ⚡ therefore prefers soaked rows and
     // falls back to all qualified rows when nothing has been soaked yet.
     const soaked = qualified.filter(r => this.isSoaked(r));
-    const hrPool = soaked.length ? soaked : (qualified.length ? qualified : usable);
+    // The firmware soaks ONE extra row on purpose: the lowest-J/TH qualified point,
+    // so ECO has a verified candidate of its own (benchmark_threads.cpp bm_soak_run).
+    // When that row is the ONLY soaked one it is an efficiency result, not a
+    // hashrate result - tagging it ⚡ would advertise the slowest point in the table
+    // as the fastest. Reported from the field on v3.2.02v: ⚡ landed on 375MHz
+    // (5088 GH/s) while a qualified 675MHz (9273 GH/s) row sat in the same table.
+    // Same rule the mode presets apply before offering Turbo (edit.component.ts).
+    const effPoolAll = qualified.filter(r => r.effJTH > 0);
+    const ecoCandidate = effPoolAll.length ? effPoolAll.reduce((b, r) => r.effJTH < b.effJTH ? r : b) : null;
+    const soakedIsEcoOnly = soaked.length === 1 && ecoCandidate !== null && soaked[0] === ecoCandidate;
+    const hrPool = (soaked.length && !soakedIsEcoOnly) ? soaked : (qualified.length ? qualified : usable);
 
     // Efficiency must NOT share that pool. Narrowing the candidates to the
     // soaked rows and then asking "which is most efficient" can leave a single
@@ -986,9 +997,9 @@ export class BenchmarkComponent implements OnInit, OnDestroy {
               vcoreMin:   this.clampField(data.vcoreMin,   600, 2000, 1000),
               vcoreMax:   this.clampField(data.vcoreMax,   600, 2000, 1300),
               vcoreStep:  this.clampField(data.vcoreStep,  1,   200,  25),
-              sampleIntv: this.clampField(data.sampleIntv, 1,   300,  2),
-              bmTime:     this.clampField(data.bmTime,     15,  7200, 120),
-              stabTime:   this.clampField(data.stabTime,   15,  3600, 30),
+              sampleIntv: this.clampField(data.sampleIntv, 1,   300,  1),
+              bmTime:     this.clampField(data.bmTime,     15,  7200, 30),
+              stabTime:   this.clampField(data.stabTime,   15,  3600, 15),
             });
           });
           const msg: string = res?.message ?? 'Benchmark reset.';
